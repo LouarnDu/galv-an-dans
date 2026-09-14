@@ -1,4 +1,6 @@
-# Contexte du projet — Alerte Fest-Noz
+# Contexte du projet — galvAnDans (alerte fest-noz)
+
+Dépôt GitHub : https://github.com/LouarnDu/galvandans (public)
 
 ## Objectif
 Application qui alerte l'utilisateur quand un de ses groupes/artistes favoris
@@ -29,12 +31,29 @@ Décisions prises avec l'utilisateur :
   Un `config.example.json` sert de modèle public sans données personnelles.
   Le vrai `config.json` est reconstruit à chaque run depuis le secret GitHub
   `CONFIG_JSON` (contenu JSON complet).
-- **Envoi d'email via Brevo** (pas Gmail : refusé par l'utilisateur ; pas
-  Protonmail en expéditeur : nécessite Bridge, incompatible avec un runner
-  cloud éphémère). L'utilisateur **reçoit** bien les mails sur son adresse
-  Protonmail, seul l'expéditeur technique est un compte Brevo (SMTP relay
-  gratuit, smtp-relay.brevo.com:587). Secrets GitHub : `BREVO_SMTP_LOGIN`,
-  `BREVO_SMTP_KEY`, `FROM_EMAIL`.
+- **Envoi d'email via l'API HTTP de Resend** (https://resend.com).
+  Historique des tentatives :
+  - Protonmail en expéditeur → impossible (nécessite Bridge, incompatible
+    avec un runner cloud éphémère).
+  - Brevo (relais SMTP tiers) avec un expéditeur `@protonmail.com` →
+    bloqué : la politique **DMARC stricte (`p=reject`) de protonmail.com**
+    interdit à tout tiers d'envoyer en son nom sans authentifier le domaine
+    (impossible, Proton en est propriétaire, pas l'utilisateur).
+  - Gmail (compte dédié) en SMTP direct → abandonné : Google a refusé la
+    validation par téléphone (numéro déjà lié à 2 comptes Google existants).
+  - GMX (compte dédié) → abandonné : la création de compte échouait déjà
+    (vérification anti-fraude à l'inscription), avant même d'atteindre
+    l'étape SMTP.
+  - Solution retenue : **Resend**, un service fait pour l'envoi programmatique
+    depuis un script/serveur. Pas de nouvelle boîte mail à créer :
+    inscription sur resend.com avec l'adresse Protonmail existante de
+    l'utilisateur (juste comme identifiant de compte), puis récupération
+    d'une clé API. Envoi via une requête HTTP POST vers
+    `https://api.resend.com/emails`, expéditeur `onboarding@resend.dev`
+    (fourni par Resend, sans vérification de domaine nécessaire). Free tier
+    largement suffisant pour l'usage (100 emails/jour). L'utilisateur
+    **reçoit** toujours sur son adresse Protonmail. Secret GitHub :
+    `RESEND_API_KEY`.
 - **Fréquence : lundi/mercredi/vendredi à 2h UTC** (~"tous les 2-3 jours",
   plus prévisible qu'un cron `*/2`). Voir `.github/workflows/alerte.yml`.
 - **Anti-doublon** : `festnoz_alerte.py` mémorise les `eve_id` déjà notifiés
@@ -57,12 +76,11 @@ installés sur cette machine, je ne peux donc pas le faire à sa place) :
 2. Créer le dépôt GitHub (public), `git init` / `add` / `commit` / `push`
    en local (`config.json` et `notified.json` resteront non commités grâce
    au `.gitignore`).
-3. Créer un compte Brevo gratuit → récupérer identifiant SMTP + clé API
-   SMTP.
+3. Créer un compte sur resend.com (avec l'adresse Protonmail existante) et
+   récupérer une clé API (API Keys → Create API Key).
 4. Dans les secrets du dépôt GitHub (Settings → Secrets and variables →
    Actions), ajouter : `CONFIG_JSON` (contenu complet du `config.json` réel,
-   avec l'adresse email Protonmail comme destinataire), `BREVO_SMTP_LOGIN`,
-   `BREVO_SMTP_KEY`, `FROM_EMAIL`.
+   avec l'adresse email Protonmail comme destinataire), `RESEND_API_KEY`.
 5. Vérifier un run manuel via l'onglet Actions → "Run workflow"
    (workflow_dispatch) avant de laisser tourner le cron automatique.
 

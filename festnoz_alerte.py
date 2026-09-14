@@ -14,10 +14,8 @@ from __future__ import annotations
 import json
 import os
 import re
-import smtplib
 import time
 from datetime import date
-from email.message import EmailMessage
 from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
@@ -43,14 +41,16 @@ HEADERS = {
 }
 
 # ---------------------------------------------------------------------------
-# ENVOI D'EMAIL (via Brevo, service SMTP gratuit — https://www.brevo.com)
+# ENVOI D'EMAIL (API HTTP de Resend — https://resend.com)
 # ---------------------------------------------------------------------------
 # Identifiants lus depuis des variables d'environnement (secrets GitHub Actions
 # en production, jamais codés en dur). Si absents, l'email est simplement
 # désactivé et le script se contente d'afficher les résultats dans la console
 # — pratique pour tester en local sans configurer d'email.
-BREVO_SMTP_SERVER = "smtp-relay.brevo.com"
-BREVO_SMTP_PORT = 587
+# "onboarding@resend.dev" est l'adresse d'expédition fournie par Resend,
+# utilisable sans avoir à posséder/vérifier de domaine.
+RESEND_API_URL = "https://api.resend.com/emails"
+RESEND_FROM_EMAIL = "onboarding@resend.dev"
 
 
 def appeler_agenda_groupe(entity_id: str, entity_type: str, annee: int) -> dict | None:
@@ -166,32 +166,32 @@ def formater_email(alertes: list[dict]) -> tuple[str, str]:
 
 
 def envoyer_email(destinataire: str, sujet: str, corps: str) -> bool:
-    """Envoie un email via le relais SMTP Brevo. Retourne False si les
-    identifiants ne sont pas configurés (mode local sans email) ou en cas
-    d'erreur d'envoi."""
-    login = os.environ.get("BREVO_SMTP_LOGIN")
-    cle = os.environ.get("BREVO_SMTP_KEY")
-    expediteur = os.environ.get("FROM_EMAIL", login)
+    """Envoie un email via l'API HTTP de Resend. Retourne False si la clé
+    API n'est pas configurée (mode local sans email) ou en cas d'erreur
+    d'envoi."""
+    cle_api = os.environ.get("RESEND_API_KEY")
 
-    if not login or not cle or not destinataire:
-        print("  ⚠️ Identifiants email absents (BREVO_SMTP_LOGIN/BREVO_SMTP_KEY) "
-              "ou destinataire manquant : email non envoyé (affichage console uniquement).")
+    if not cle_api or not destinataire:
+        print("  ⚠️ Clé API absente (RESEND_API_KEY) ou destinataire manquant : "
+              "email non envoyé (affichage console uniquement).")
         return False
 
-    message = EmailMessage()
-    message["Subject"] = sujet
-    message["From"] = expediteur
-    message["To"] = destinataire
-    message.set_content(corps)
-
     try:
-        with smtplib.SMTP(BREVO_SMTP_SERVER, BREVO_SMTP_PORT, timeout=20) as smtp:
-            smtp.starttls()
-            smtp.login(login, cle)
-            smtp.send_message(message)
+        resp = requests.post(
+            RESEND_API_URL,
+            headers={"Authorization": f"Bearer {cle_api}"},
+            json={
+                "from": RESEND_FROM_EMAIL,
+                "to": [destinataire],
+                "subject": sujet,
+                "text": corps,
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
         print(f"  ✅ Email envoyé à {destinataire}.")
         return True
-    except smtplib.SMTPException as exc:
+    except requests.RequestException as exc:
         print(f"  ❌ Échec de l'envoi de l'email : {exc}")
         return False
 

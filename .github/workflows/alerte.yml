@@ -36,9 +36,7 @@ jobs:
 
       - name: Exécution du script d'alerte
         env:
-          BREVO_SMTP_LOGIN: ${{ secrets.BREVO_SMTP_LOGIN }}
-          BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
-          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: python festnoz_alerte.py
 
       - name: Sauvegarde des événements notifiés (cache)
