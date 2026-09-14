@@ -2,8 +2,8 @@ name: Alerte Fest-Noz
 
 on:
   schedule:
-    # Lundi, mercredi, vendredi à 2h UTC (~3h ou 4h heure française selon la saison)
-    - cron: "0 2 * * 1,3,5"
+    # Une fois par semaine, le lundi à 2h UTC (~3h ou 4h heure française selon la saison)
+    - cron: "0 2 * * 1"
   workflow_dispatch:
     inputs:
       forcer_envoi:

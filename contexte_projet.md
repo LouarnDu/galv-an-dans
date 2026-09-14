@@ -75,8 +75,12 @@ Décisions prises avec l'utilisateur :
   TXT nécessaires pour SPF/DKIM) ou **FreeDNS (afraid.org)** (inscription
   immédiate, contrôle DNS complet). Freenom (.tk/.ml/.ga) explicitement
   écarté : service arrêté aux nouvelles inscriptions depuis 2023.
-- **Fréquence : lundi/mercredi/vendredi à 2h UTC** (~"tous les 2-3 jours",
-  plus prévisible qu'un cron `*/2`). Voir `.github/workflows/alerte.yml`.
+- **Fréquence : une fois par semaine, le lundi à 2h UTC** (réduit encore la
+  sollicitation des API Tamm-Kreiz/OSRM ; changé depuis lundi/mercredi/
+  vendredi le 2026-09-14 suite à un retour de l'utilisateur). Voir
+  `.github/workflows/alerte.yml`. Déclenchement manuel via l'onglet Actions
+  toujours possible à tout moment pour tester (case `forcer_envoi`
+  disponible).
 - **Anti-doublon** : `festnoz_alerte.py` mémorise les `eve_id` déjà notifiés
   dans `notified.json`, purgés automatiquement une fois l'événement passé.
   Ce fichier n'est pas commité (dépôt public) ; il est persisté entre les
