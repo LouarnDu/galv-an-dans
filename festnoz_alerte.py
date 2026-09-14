@@ -284,6 +284,11 @@ def main():
     utilisateurs = charger_config()
     notifies = charger_notifies()
 
+    forcer_envoi = os.environ.get("FORCER_ENVOI", "").strip().lower() in ("1", "true", "yes")
+    if forcer_envoi:
+        print("⚙️  FORCER_ENVOI actif : l'anti-doublon est ignoré, "
+              "toutes les alertes actuelles seront (re)notifiées.\n")
+
     for utilisateur in utilisateurs:
         nom = utilisateur["nom"]
         print(f"\n{'=' * 50}\n{nom} — {utilisateur['adresse']}\n{'=' * 50}")
@@ -291,7 +296,7 @@ def main():
         alertes, ids_evenements_futurs = calculer_alertes_pour_utilisateur(utilisateur)
         afficher_alertes(utilisateur, alertes)
 
-        deja_notifies = set(notifies.get(nom, []))
+        deja_notifies = set() if forcer_envoi else set(notifies.get(nom, []))
         nouvelles_alertes = [evt for evt in alertes if evt["id"] not in deja_notifies]
 
         if nouvelles_alertes:

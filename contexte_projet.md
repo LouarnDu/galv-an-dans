@@ -51,9 +51,25 @@ Décisions prises avec l'utilisateur :
     d'une clé API. Envoi via une requête HTTP POST vers
     `https://api.resend.com/emails`, expéditeur `onboarding@resend.dev`
     (fourni par Resend, sans vérification de domaine nécessaire). Free tier
-    largement suffisant pour l'usage (100 emails/jour). L'utilisateur
-    **reçoit** toujours sur son adresse Protonmail. Secret GitHub :
+    largement suffisant pour l'usage (100 emails/jour). Secret GitHub :
     `RESEND_API_KEY`.
+
+  **⚠️ Limite découverte à l'usage (2026-09-14) :** sans domaine vérifié,
+  Resend (comme tout service d'envoi transactionnel gratuit — protection
+  anti-spam standard du secteur) refuse d'envoyer vers une adresse
+  différente de celle du compte Resend lui-même (erreur `403 Forbidden`).
+  Donc tant qu'aucun domaine n'est vérifié : `config.json`/`CONFIG_JSON`
+  doit avoir pour chaque utilisateur `email` = l'adresse Protonmail utilisée
+  à l'inscription sur resend.com. **Ça casse la vision multi-utilisateurs**
+  (chacun avec sa propre adresse) tant qu'un domaine n'est pas vérifié.
+  Solution retenue pour l'instant : rester sur un seul utilisateur (email =
+  compte Resend), et vérifier un vrai domaine le jour où un 2e utilisateur
+  est ajouté pour de vrai. Pistes de **domaine gratuit** évoquées pour ce
+  jour-là (l'utilisateur ne veut pas payer) : **is-a.dev** (sous-domaine
+  gratuit via PR GitHub, backend Cloudflare, supporte les enregistrements
+  TXT nécessaires pour SPF/DKIM) ou **FreeDNS (afraid.org)** (inscription
+  immédiate, contrôle DNS complet). Freenom (.tk/.ml/.ga) explicitement
+  écarté : service arrêté aux nouvelles inscriptions depuis 2023.
 - **Fréquence : lundi/mercredi/vendredi à 2h UTC** (~"tous les 2-3 jours",
   plus prévisible qu'un cron `*/2`). Voir `.github/workflows/alerte.yml`.
 - **Anti-doublon** : `festnoz_alerte.py` mémorise les `eve_id` déjà notifiés

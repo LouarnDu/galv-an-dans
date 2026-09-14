@@ -4,7 +4,12 @@ on:
   schedule:
     # Lundi, mercredi, vendredi à 2h UTC (~3h ou 4h heure française selon la saison)
     - cron: "0 2 * * 1,3,5"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      forcer_envoi:
+        description: "Ignorer l'anti-doublon et renvoyer toutes les alertes actuelles (pratique pour tester)"
+        type: boolean
+        default: false
 
 jobs:
   alerte:
@@ -37,6 +42,7 @@ jobs:
       - name: Exécution du script d'alerte
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          FORCER_ENVOI: ${{ github.event.inputs.forcer_envoi }}
         run: python festnoz_alerte.py
 
       - name: Sauvegarde des événements notifiés (cache)
