@@ -1,6 +1,6 @@
 """
-Alerte Fest-Noz — V2
-=====================
+Galv an dañs — alerte fest-noz
+================================
 Utilise l'API interne de Tamm-Kreiz (endpoint ajax_blocAgendaMensuel.html,
 découverte via les DevTools du navigateur) pour récupérer directement
 l'agenda de chaque groupe favori : dates, lieux (avec coordonnées GPS),

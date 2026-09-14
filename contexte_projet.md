@@ -1,6 +1,6 @@
-# Contexte du projet — galvAnDans (alerte fest-noz)
+# Contexte du projet — Galv an dañs (alerte fest-noz)
 
-Dépôt GitHub : https://github.com/LouarnDu/galvandans (public)
+Dépôt GitHub : https://github.com/LouarnDu/galv-an-dans (public)
 
 ## Objectif
 Application qui alerte l'utilisateur quand un de ses groupes/artistes favoris
@@ -23,8 +23,13 @@ moins de X minutes de route de chez lui.
   5. affiche les événements en dessous du seuil de minutes défini
 
 - Testé et fonctionnel en local sur Windows (Python 3.14).
+- **GitHub Actions opérationnel et validé de bout en bout (2026-09-14)** :
+  scraping des favoris, agenda Tamm-Kreiz, calcul de trajet OSRM, envoi
+  d'email via Resend et anti-doublon — testé en conditions réelles, email
+  bien reçu. Cron actif : lundi/mercredi/vendredi à 2h UTC. Détails de la
+  mise en place et des choix techniques ci-dessous.
 
-## Étape en cours — mise en place GitHub Actions (2026-09-14)
+## Mise en place GitHub Actions (2026-09-14) — détails et historique
 Décisions prises avec l'utilisateur :
 - **Dépôt GitHub public.** Conséquence : `config.json` (adresse, coordonnées
   GPS, email) et `notified.json` ne sont **jamais commités** (`.gitignore`).
@@ -77,28 +82,22 @@ Décisions prises avec l'utilisateur :
   Ce fichier n'est pas commité (dépôt public) ; il est persisté entre les
   runs via le cache GitHub Actions (`actions/cache`, clé `notified-<run_id>`
   + `restore-keys: notified-`).
+- **Option de test `forcer_envoi`** : case à cocher sur le déclenchement
+  manuel du workflow (`workflow_dispatch`) qui ignore l'anti-doublon et
+  renvoie toutes les alertes actuelles — pratique pour vérifier que l'email
+  arrive bien sans devoir attendre un vrai nouvel événement. Passée au
+  script via la variable d'env `FORCER_ENVOI`.
 
 ### Fichiers ajoutés/modifiés
-- `festnoz_alerte.py` : + `envoyer_email()` (SMTP Brevo, désactivé si
-  variables d'env absentes → utile pour tester en local sans configurer
+- `festnoz_alerte.py` : + `envoyer_email()` (API Resend, désactivé si
+  `RESEND_API_KEY` absent → utile pour tester en local sans configurer
   l'email), + `charger_notifies()`/`sauvegarder_notifies()`, `main()`
-  n'envoie que les nouvelles alertes.
+  n'envoie que les nouvelles alertes (sauf `FORCER_ENVOI`).
 - `requirements.txt`, `config.example.json`, `.gitignore`,
   `.github/workflows/alerte.yml`.
 
-### Reste à faire (manuel, côté utilisateur — je n'ai ni Git ni GitHub CLI
-installés sur cette machine, je ne peux donc pas le faire à sa place) :
-1. Installer Git for Windows.
-2. Créer le dépôt GitHub (public), `git init` / `add` / `commit` / `push`
-   en local (`config.json` et `notified.json` resteront non commités grâce
-   au `.gitignore`).
-3. Créer un compte sur resend.com (avec l'adresse Protonmail existante) et
-   récupérer une clé API (API Keys → Create API Key).
-4. Dans les secrets du dépôt GitHub (Settings → Secrets and variables →
-   Actions), ajouter : `CONFIG_JSON` (contenu complet du `config.json` réel,
-   avec l'adresse email Protonmail comme destinataire), `RESEND_API_KEY`.
-5. Vérifier un run manuel via l'onglet Actions → "Run workflow"
-   (workflow_dispatch) avant de laisser tourner le cron automatique.
+### Secrets GitHub configurés
+`CONFIG_JSON` (contenu complet du `config.json` réel), `RESEND_API_KEY`.
 
 ## Vision à plus long terme (pas la priorité immédiate)
 - Une interface où plusieurs utilisateurs pourraient créer un compte,
