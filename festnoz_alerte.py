@@ -11,12 +11,14 @@ Dépendances : pip install requests
 """
 
 from __future__ import annotations
+import html
 import json
 import os
 import re
 import time
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlencode
 import requests
 from bs4 import BeautifulSoup
 
@@ -122,27 +124,73 @@ def evenements_futurs_du_groupe(nom: str, entity_id: str, entity_type: str) -> l
     return evenements
 
 
-def recuperer_heure_evenement(url_evenement: str) -> str | None:
-    """Scrape la page d'un événement pour récupérer son heure (absente de
-    l'API agenda mensuel). N'est appelé que pour les événements retenus
-    dans une alerte (peu nombreux), pas pour tous les événements trouvés."""
+def recuperer_details_evenement(url_evenement: str) -> dict:
+    """Scrape la page d'un événement pour récupérer son heure et l'adresse
+    complète du lieu (absentes de l'API agenda mensuel). N'est appelé que
+    pour les événements retenus dans une alerte (peu nombreux), pas pour
+    tous les événements trouvés. Retourne {"heure": str|None, "adresse": str|None}."""
+    details = {"heure": None, "adresse": None}
     try:
         resp = requests.get(url_evenement, headers=HEADERS, timeout=15)
         resp.raise_for_status()
     except requests.RequestException:
-        return None
+        return details
 
     soup = BeautifulSoup(resp.text, "html.parser")
-    titre_heure = soup.find("h4", string=re.compile(r"Date et heure", re.IGNORECASE))
-    if not titre_heure:
-        return None
-    detail = titre_heure.find_next("p", class_="detail_item")
-    if not detail:
-        return None
 
-    texte = detail.get_text(" ", strip=True)
-    m = re.search(r"(\d{1,2}h\d{2})", texte)
-    return m.group(1) if m else None
+    titre_heure = soup.find("h4", string=re.compile(r"Date et heure", re.IGNORECASE))
+    if titre_heure:
+        detail = titre_heure.find_next("p", class_="detail_item")
+        if detail:
+            texte = detail.get_text(" ", strip=True)
+            m = re.search(r"(\d{1,2}h\d{2})", texte)
+            details["heure"] = m.group(1) if m else None
+
+    titre_lieu = soup.find("h3", string=re.compile(r"^\s*Lieu\s*$", re.IGNORECASE))
+    if titre_lieu:
+        detail = titre_lieu.find_next("p", class_="detail_item")
+        if detail:
+            lignes = [l.strip() for l in detail.get_text("\n").split("\n") if l.strip()]
+            lignes_adresse = []
+            for ligne in lignes:
+                # Lignes d'infos annexes du type "Parking : oui" / "Parquet : non"
+                # à exclure de l'adresse.
+                if re.match(r"^\w+\s*:\s*(oui|non)$", ligne, re.IGNORECASE):
+                    break
+                lignes_adresse.append(ligne)
+            if lignes_adresse:
+                details["adresse"] = ", ".join(lignes_adresse)
+
+    return details
+
+
+def parser_heure(heure: str) -> tuple[int, int] | None:
+    m = re.match(r"(\d{1,2})h(\d{2})", heure)
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2))
+
+
+def lien_calendrier(evt: dict) -> str:
+    """Lien vers un fichier .ics (iCalendar) généré à la volée par le site
+    web — format universel compatible Google, Outlook, Apple Calendar, etc.,
+    plutôt qu'un lien spécifique à un seul fournisseur."""
+    titre = f"{evt['type']} à {evt['duree']}min - " + " - ".join(evt["favoris_presents"])
+    lieu = evt.get("adresse") or evt["ville"]
+    description = f"{evt['plateau']}\n\nVoir l'événement sur Tamm Kreiz : {evt['url']}"
+
+    params = {"id": str(evt["id"]), "titre": titre, "description": description, "lieu": lieu}
+
+    heure = parser_heure(evt["heure"]) if evt.get("heure") else None
+    if heure:
+        debut = datetime(evt["date"].year, evt["date"].month, evt["date"].day, *heure)
+        fin = debut + timedelta(hours=3)
+        params["debut"] = debut.strftime("%Y-%m-%dT%H:%M:%S")
+        params["fin"] = fin.strftime("%Y-%m-%dT%H:%M:%S")
+    else:
+        params["jour"] = evt["date"].isoformat()
+
+    return f"{WEBAPP_BASE_URL}/api/calendrier.ics?" + urlencode(params)
 
 
 def temps_trajet_minutes(depart: tuple[float, float], arrivee: tuple[float, float]) -> float | None:
@@ -215,39 +263,66 @@ def formater_date_fr(d: date) -> str:
     return f"{JOURS_FR[d.weekday()]} {d.day} {MOIS_FR[d.month - 1]}"
 
 
-def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str]:
-    """Construit (sujet, corps) du mail récapitulatif, groupé par date."""
+def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, str]:
+    """Construit (sujet, corps_html, corps_texte) du mail récapitulatif,
+    groupé par date. La version HTML porte les liens cliquables ("voir sur
+    Tamm Kreiz", "ajouter à mon calendrier") ; la version texte sert de
+    secours pour les clients mail qui n'affichent pas le HTML."""
     sujet = f"🎶 {len(alertes)} nouvelle(s) date(s) de tes groupes favoris"
 
-    blocs = []
+    blocs_html = []
+    blocs_texte = []
     date_courante = None
     for evt in sorted(alertes, key=lambda e: e["date"]):
         if evt["date"] != date_courante:
             date_courante = evt["date"]
             titre_date = formater_date_fr(date_courante)
-            blocs.append(f"\n{titre_date}\n{'-' * len(titre_date)}")
+            blocs_html.append(f"<h2>{html.escape(titre_date)}</h2>")
+            blocs_texte.append(f"\n{titre_date}\n{'-' * len(titre_date)}")
 
-        heure = f" à {evt['heure']}" if evt.get("heure") else ""
-        blocs.append(
-            f"{evt['type']} à {evt['ville']}{heure}\n"
-            f"  Groupe(s) favori(s) : {', '.join(evt['favoris_presents'])}\n"
+        heure_txt = f" à {evt['heure']}" if evt.get("heure") else ""
+        titre_evt = f"{evt['type']} à {evt['ville']}{heure_txt}"
+        favoris_txt = ", ".join(evt["favoris_presents"])
+
+        lien_ics = lien_calendrier(evt)
+
+        blocs_html.append(
+            "<p>"
+            f"<strong>{html.escape(titre_evt)}</strong><br>"
+            f"Groupe(s) favori(s) : {html.escape(favoris_txt)}<br>"
+            f"Plateau complet : {html.escape(evt['plateau'])}<br>"
+            f"🚗 {evt['duree']} min de chez toi<br>"
+            f'<a href="{html.escape(evt["url"])}">Voir sur Tamm Kreiz</a><br>'
+            f'<a href="{html.escape(lien_ics)}">Ajouter à mon agenda</a>'
+            "</p>"
+        )
+        blocs_texte.append(
+            f"{titre_evt}\n"
+            f"  Groupe(s) favori(s) : {favoris_txt}\n"
             f"  Plateau complet : {evt['plateau']}\n"
             f"  🚗 {evt['duree']} min de chez toi\n"
-            f"  {evt['url']}\n"
+            f"  Voir sur Tamm Kreiz : {evt['url']}\n"
+            f"  Ajouter à mon agenda : {lien_ics}\n"
         )
-    corps = "\n".join(blocs)
 
+    pied_html = ""
+    pied_texte = ""
     lien_id = utilisateur.get("id")
     if lien_id:
-        corps += f"\nGérer tes préférences (adresse, rayon, profil) : {WEBAPP_BASE_URL}/edit.html?id={lien_id}\n"
+        lien_prefs = f"{WEBAPP_BASE_URL}/edit.html?id={lien_id}"
+        pied_html = f'<p><a href="{html.escape(lien_prefs)}">Gérer tes préférences</a> (adresse, rayon, profil)</p>'
+        pied_texte = f"\nGérer tes préférences (adresse, rayon, profil) : {lien_prefs}\n"
 
-    return sujet, corps
+    corps_html = "<html><body>" + "".join(blocs_html) + pied_html + "</body></html>"
+    corps_texte = "\n".join(blocs_texte) + pied_texte
+
+    return sujet, corps_html, corps_texte
 
 
-def envoyer_email(destinataire: str, sujet: str, corps: str) -> bool:
-    """Envoie un email via l'API HTTP de Resend. Retourne False si la clé
-    API n'est pas configurée (mode local sans email) ou en cas d'erreur
-    d'envoi."""
+def envoyer_email(destinataire: str, sujet: str, corps_html: str, corps_texte: str) -> bool:
+    """Envoie un email via l'API HTTP de Resend (HTML + texte de secours).
+    Retourne False si la clé API n'est pas configurée (mode local sans
+    email) ou en cas d'erreur d'envoi."""
     cle_api = os.environ.get("RESEND_API_KEY")
 
     if not cle_api or not destinataire:
@@ -263,7 +338,8 @@ def envoyer_email(destinataire: str, sujet: str, corps: str) -> bool:
                 "from": RESEND_FROM_EMAIL,
                 "to": [destinataire],
                 "subject": sujet,
-                "text": corps,
+                "html": corps_html,
+                "text": corps_texte,
             },
             timeout=20,
         )
@@ -337,7 +413,7 @@ def calculer_alertes_pour_utilisateur(utilisateur: dict) -> tuple[list[dict], se
               f"(favoris : {', '.join(evt['favoris_presents'])})")
         if duree <= max_minutes:
             evt["duree"] = duree
-            evt["heure"] = recuperer_heure_evenement(evt["url"])
+            evt.update(recuperer_details_evenement(evt["url"]))
             alertes.append(evt)
             time.sleep(0.5)  # politesse envers le serveur Tamm-Kreiz
         time.sleep(1)  # politesse envers le serveur OSRM
@@ -394,8 +470,8 @@ def main():
 
         if nouvelles_alertes:
             print(f"\n  → {len(nouvelles_alertes)} nouvelle(s) alerte(s) à notifier.")
-            sujet, corps = formater_email(utilisateur, nouvelles_alertes)
-            envoyer_email(utilisateur.get("email", ""), sujet, corps)
+            sujet, corps_html, corps_texte = formater_email(utilisateur, nouvelles_alertes)
+            envoyer_email(utilisateur.get("email", ""), sujet, corps_html, corps_texte)
         else:
             print("\n  → Rien de nouveau depuis la dernière exécution, pas d'email envoyé.")
 

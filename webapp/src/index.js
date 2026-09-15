@@ -2,6 +2,72 @@ import { jsonResponse, errorResponse, geocodeAdresse, envoyerEmailBienvenue, gen
 
 const RAYON_MAX_MINUTES = 300;
 
+function echapperICS(texte) {
+  return String(texte)
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\n/g, "\\n");
+}
+
+function jourSuivantISO(jourStr) {
+  const d = new Date(`${jourStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10).replace(/-/g, "");
+}
+
+// GET /api/calendrier.ics — génère un événement iCalendar (.ics) universel
+// (Google, Outlook, Apple Calendar, etc.) à partir de paramètres passés en
+// query string. Public et sans état : ne fait que renvoyer ce qu'on lui a
+// donné, mis en forme.
+function genererCalendrierIcs(request) {
+  const params = new URL(request.url).searchParams;
+  const id = params.get("id") || "evt";
+  const titre = params.get("titre");
+  const description = params.get("description") || "";
+  const lieu = params.get("lieu") || "";
+  const debut = params.get("debut");
+  const fin = params.get("fin");
+  const jour = params.get("jour");
+
+  if (!titre) return errorResponse("Paramètre 'titre' manquant.");
+  if (!jour && (!debut || !fin)) {
+    return errorResponse("Paramètres 'debut'/'fin' (événement avec horaire) ou 'jour' (journée complète) manquants.");
+  }
+
+  const dtstamp = `${new Date().toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
+  const lignes = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Galv an dañs//FR",
+    "BEGIN:VEVENT",
+    `UID:evt-${id}@galvandans.xyz`,
+    `DTSTAMP:${dtstamp}`,
+  ];
+
+  if (jour) {
+    const j = jour.replace(/-/g, "");
+    lignes.push(`DTSTART;VALUE=DATE:${j}`, `DTEND;VALUE=DATE:${jourSuivantISO(jour)}`);
+  } else {
+    lignes.push(
+      `DTSTART;TZID=Europe/Paris:${debut.replace(/[-:]/g, "")}`,
+      `DTEND;TZID=Europe/Paris:${fin.replace(/[-:]/g, "")}`
+    );
+  }
+
+  lignes.push(`SUMMARY:${echapperICS(titre)}`);
+  if (description) lignes.push(`DESCRIPTION:${echapperICS(description)}`);
+  if (lieu) lignes.push(`LOCATION:${echapperICS(lieu)}`);
+  lignes.push("END:VEVENT", "END:VCALENDAR");
+
+  return new Response(lignes.join("\r\n"), {
+    headers: {
+      "Content-Type": "text/calendar; charset=utf-8",
+      "Content-Disposition": 'attachment; filename="evenement.ics"',
+    },
+  });
+}
+
 function validerEntree(body) {
   if (!body || typeof body !== "object") return "Corps de requête invalide.";
   if (!body.nom || typeof body.nom !== "string" || !body.nom.trim()) return "Le nom est requis.";
@@ -142,6 +208,10 @@ export default {
     const url = new URL(request.url);
     const { pathname } = url;
     const { method } = request;
+
+    if (pathname === "/api/calendrier.ics" && method === "GET") {
+      return genererCalendrierIcs(request);
+    }
 
     if (pathname === "/api/users") {
       if (method === "POST") return creerUtilisateur(request, env);
