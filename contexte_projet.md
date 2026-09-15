@@ -114,40 +114,48 @@ Tamm-Kreiz, adresse, rayon) via un lien secret personnel, sans toucher à
 GitHub. Sert aussi de pièce à montrer sur le CV de l'utilisateur (stack
 full-stack serverless).
 
-- **Stack** : Cloudflare Pages (statique + Functions) + D1 (SQLite),
-  déployé depuis ce même dépôt (racine `webapp`, sortie `public`), configuré
-  entièrement via le dashboard Cloudflare (pas de CLI/Node nécessaire).
-  Hébergé sur `app.galvandans.xyz` (sous-domaine choisi pour ne pas toucher
-  aux enregistrements Resend déjà en place sur l'apex `galvandans.xyz`).
+- **Stack** : Cloudflare Workers (le produit "Pages" a été fusionné dans
+  "Workers" par Cloudflare — architecture actuelle : un seul script Worker
+  + un dossier d'assets statiques, configurés via `wrangler.jsonc`, déployé
+  automatiquement à chaque push par Cloudflare Workers Builds
+  `npx wrangler deploy`). Hébergé sur `app.galvandans.xyz` (sous-domaine
+  choisi pour ne pas toucher aux enregistrements Resend déjà en place sur
+  l'apex `galvandans.xyz`).
 - **Auth** : lien secret unique par utilisateur (UUID v4 dans l'URL,
   `/edit.html?id=...`), pas de mot de passe. Limite assumée pour ce v1 :
   pas de double opt-in par email à l'inscription (usage entre amis, lien non
   indexé — `<meta name="robots" content="noindex">`).
 - **Géocodage** : adresse → lat/lon automatique via Nominatim (OpenStreetMap,
-  gratuit), côté serveur (`webapp/functions/_shared.js`).
-- **API** (`webapp/functions/api/`) : `POST /api/users` (inscription +
-  géocodage + email de bienvenue avec le lien), `GET`/`PUT`/`DELETE
-  /api/u/:id` (gestion des préférences), `GET /api/users` (liste complète,
-  protégée par le header `X-Api-Key` comparé au secret Cloudflare
-  `SYNC_API_KEY` — c'est cette route que `festnoz_alerte.py` interroge
-  désormais via `USERS_API_URL`/`USERS_API_KEY`).
+  gratuit), côté serveur (`webapp/src/shared.js`).
+- **API** (routée dans `webapp/src/index.js`, un seul point d'entrée Worker) :
+  `POST /api/users` (inscription + géocodage + email de bienvenue avec le
+  lien), `GET`/`PUT`/`DELETE /api/u/:id` (gestion des préférences),
+  `GET /api/users` (liste complète, protégée par le header `X-Api-Key`
+  comparé au secret Cloudflare `SYNC_API_KEY` — c'est cette route que
+  `festnoz_alerte.py` interroge désormais via `USERS_API_URL`/`USERS_API_KEY`).
+  Tout ce qui ne matche pas `/api/*` est servi depuis `webapp/public/` via
+  le binding `env.ASSETS`.
 - **Schéma D1** : `webapp/schema.sql`, table `utilisateurs` avec les mêmes
   noms de champs que l'ancien `config.json` (intégration sans friction côté
-  script Python).
+  script Python). L'identifiant de la base (`database_id`) doit être renseigné
+  dans `webapp/wrangler.jsonc` après création de la base (placeholder à
+  remplacer).
 
 ### Déploiement (à faire côté utilisateur, dashboard Cloudflare)
 1. Compte Cloudflare gratuit.
-2. Workers & Pages → Pages → connecter `LouarnDu/galv-an-dans`, racine
-   `webapp`, sortie `public`, pas de build.
-3. D1 → créer une base → Console → exécuter `schema.sql`.
-4. Pages → Settings → Functions → lier `DB` à la base créée.
-5. Pages → Settings → Environment variables → `RESEND_API_KEY`,
-   `SYNC_API_KEY` (nouveau secret aléatoire).
-6. Pages → Custom domains → `app.galvandans.xyz` → CNAME donné par
-   Cloudflare à ajouter côté Porkbun.
-7. Secrets GitHub : `USERS_API_URL`
+2. Workers & Pages → Create → onglet Workers → connecter le dépôt Git
+   `LouarnDu/galv-an-dans` → **Root directory = `webapp`** (réglable dans
+   Settings → Build après création si pas proposé à la création).
+3. D1 → créer une base (`galvandans-db`) → Console → exécuter le contenu de
+   `schema.sql` → noter le `database_id` généré → le renseigner dans
+   `webapp/wrangler.jsonc` (remplace le placeholder), committer/pousser.
+4. Worker → Settings → Variables and Secrets → `RESEND_API_KEY` (même clé
+   que celle déjà utilisée), `SYNC_API_KEY` (nouveau secret aléatoire).
+5. Worker → Settings → Domains & Routes → ajouter `app.galvandans.xyz` →
+   CNAME donné par Cloudflare à ajouter côté Porkbun.
+6. Secrets GitHub : `USERS_API_URL`
    (`https://app.galvandans.xyz/api/users`), `USERS_API_KEY` (= `SYNC_API_KEY`).
-8. L'utilisateur s'inscrit lui-même via le nouveau formulaire (remplace son
+7. L'utilisateur s'inscrit lui-même via le nouveau formulaire (remplace son
    entrée manuelle), vérifie l'email + le lien reçus, puis confirme via un
    run manuel du workflow (`forcer_envoi`).
 

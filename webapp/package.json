@@ -1,0 +1,7 @@
+{
+  "name": "galv-an-dans-webapp",
+  "private": true,
+  "devDependencies": {
+    "wrangler": "*"
+  }
+}

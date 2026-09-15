@@ -1,4 +1,4 @@
-// Utilitaires partagés par les fonctions API (Cloudflare Pages Functions).
+// Utilitaires partagés par les routes API.
 
 export function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
