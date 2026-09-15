@@ -23,14 +23,15 @@ from bs4 import BeautifulSoup
 # ---------------------------------------------------------------------------
 # CONFIGURATION
 # ---------------------------------------------------------------------------
-# Les réglages (adresse, rayon, favoris) ne sont plus codés en dur ici : ils
-# viennent de config.json, structuré comme une LISTE d'utilisateurs — même
-# s'il n'y en a qu'un pour l'instant. Le jour où on veut ajouter des amis,
-# il suffira d'ajouter des entrées dans ce fichier (ou, plus tard, dans une
-# vraie base de données qui aura la même forme), sans toucher au script.
+# La liste des utilisateurs vient de l'API du site web (webapp/, hébergé sur
+# Cloudflare Pages + D1) plutôt que d'un fichier local : chaque utilisateur
+# gère ses propres préférences (profil Tamm-Kreiz, adresse, rayon) via un
+# formulaire, sans avoir à toucher à ce dépôt.
 
-CONFIG_PATH = Path(__file__).parent / "config.json"
 NOTIFIED_PATH = Path(__file__).parent / "notified.json"
+
+USERS_API_URL = os.environ.get("USERS_API_URL")
+USERS_API_KEY = os.environ.get("USERS_API_KEY")
 
 EVENT_TYPES_KEPT = ("fest noz", "fest deiz", "fest-deiz", "concert")
 
@@ -50,7 +51,7 @@ HEADERS = {
 # "onboarding@resend.dev" est l'adresse d'expédition fournie par Resend,
 # utilisable sans avoir à posséder/vérifier de domaine.
 RESEND_API_URL = "https://api.resend.com/emails"
-RESEND_FROM_EMAIL = "onboarding@resend.dev"
+RESEND_FROM_EMAIL = "alertes@galvandans.xyz"
 
 
 def appeler_agenda_groupe(entity_id: str, entity_type: str, annee: int) -> dict | None:
@@ -133,8 +134,9 @@ def temps_trajet_minutes(depart: tuple[float, float], arrivee: tuple[float, floa
 
 
 def charger_config() -> list[dict]:
-    with open(CONFIG_PATH, encoding="utf-8") as f:
-        return json.load(f)["utilisateurs"]
+    resp = requests.get(USERS_API_URL, headers={"X-Api-Key": USERS_API_KEY}, timeout=15)
+    resp.raise_for_status()
+    return resp.json()["utilisateurs"]
 
 
 def charger_notifies() -> dict[str, list[str]]:

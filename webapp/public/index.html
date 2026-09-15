@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Galv an dañs</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>Galv an dañs</h1>
+    <p class="subtitle">
+      Reçois une alerte par email quand tes groupes favoris (suivis sur
+      Tamm-Kreiz) jouent un fest-noz, fest-deiz ou concert près de chez toi.
+    </p>
+
+    <form id="form-inscription">
+      <label>
+        Ton prénom
+        <input type="text" name="nom" required maxlength="80" />
+      </label>
+
+      <label>
+        Ton email
+        <span class="hint">Pour recevoir les alertes et ton lien de gestion.</span>
+        <input type="email" name="email" required maxlength="200" />
+      </label>
+
+      <label>
+        URL de ton profil Tamm-Kreiz
+        <span class="hint">https://tamm-kreiz.bzh/profil/...</span>
+        <input
+          type="url"
+          name="profil_url"
+          required
+          pattern="https://tamm-kreiz\.bzh/.*"
+          placeholder="https://tamm-kreiz.bzh/profil/..."
+        />
+      </label>
+
+      <label>
+        Ton adresse
+        <span class="hint">Sert uniquement à calculer le temps de trajet.</span>
+        <input type="text" name="adresse" required maxlength="200" />
+      </label>
+
+      <label>
+        Rayon (minutes de route)
+        <input type="number" name="rayon_minutes" required min="1" max="300" value="40" />
+      </label>
+
+      <button type="submit" class="primary">Créer mon alerte</button>
+    </form>
+
+    <div id="message" class="message" hidden></div>
+
+    <p class="subtitle" style="margin-top: 24px;">
+      Déjà inscrit(e) ? Utilise le lien reçu par email pour modifier tes préférences.
+    </p>
+  </div>
+
+  <script>
+    const form = document.getElementById("form-inscription");
+    const message = document.getElementById("message");
+
+    function afficherMessage(texte, type) {
+      message.textContent = texte;
+      message.className = `message ${type}`;
+      message.hidden = false;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const bouton = form.querySelector("button[type=submit]");
+      bouton.disabled = true;
+      message.hidden = true;
+
+      const donnees = Object.fromEntries(new FormData(form).entries());
+      donnees.rayon_minutes = Number(donnees.rayon_minutes);
+
+      try {
+        const resp = await fetch("/api/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(donnees),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          afficherMessage(data.error || "Une erreur est survenue.", "error");
+        } else {
+          afficherMessage(data.message, "ok");
+          form.reset();
+          form.rayon_minutes.value = 40;
+        }
+      } catch {
+        afficherMessage("Erreur réseau, réessaie dans un instant.", "error");
+      } finally {
+        bouton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

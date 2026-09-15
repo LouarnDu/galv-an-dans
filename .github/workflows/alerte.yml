@@ -34,14 +34,11 @@ jobs:
           restore-keys: |
             notified-
 
-      - name: Écriture de config.json à partir du secret
-        env:
-          CONFIG_JSON: ${{ secrets.CONFIG_JSON }}
-        run: echo "$CONFIG_JSON" > config.json
-
       - name: Exécution du script d'alerte
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          USERS_API_URL: ${{ secrets.USERS_API_URL }}
+          USERS_API_KEY: ${{ secrets.USERS_API_KEY }}
           FORCER_ENVOI: ${{ github.event.inputs.forcer_envoi }}
         run: python festnoz_alerte.py
 

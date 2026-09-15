@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Galv an dañs — mes préférences</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>Mes préférences</h1>
+    <p class="subtitle" id="subtitle">Chargement...</p>
+
+    <form id="form-edition" hidden>
+      <label>
+        Ton prénom
+        <input type="text" name="nom" required maxlength="80" />
+      </label>
+
+      <label>
+        Ton email
+        <input type="email" name="email" required maxlength="200" />
+      </label>
+
+      <label>
+        URL de ton profil Tamm-Kreiz
+        <input
+          type="url"
+          name="profil_url"
+          required
+          pattern="https://tamm-kreiz\.bzh/.*"
+        />
+      </label>
+
+      <label>
+        Ton adresse
+        <input type="text" name="adresse" required maxlength="200" />
+      </label>
+
+      <label>
+        Rayon (minutes de route)
+        <input type="number" name="rayon_minutes" required min="1" max="300" />
+      </label>
+
+      <button type="submit" class="primary">Enregistrer</button>
+      <button type="button" class="danger" id="btn-supprimer">Supprimer mon compte</button>
+    </form>
+
+    <div id="message" class="message" hidden></div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const id = params.get("id");
+    const form = document.getElementById("form-edition");
+    const subtitle = document.getElementById("subtitle");
+    const message = document.getElementById("message");
+
+    function afficherMessage(texte, type) {
+      message.textContent = texte;
+      message.className = `message ${type}`;
+      message.hidden = false;
+    }
+
+    if (!id) {
+      subtitle.textContent = "Lien invalide : identifiant manquant dans l'URL.";
+    } else {
+      chargerPreferences();
+    }
+
+    async function chargerPreferences() {
+      try {
+        const resp = await fetch(`/api/u/${id}`);
+        const data = await resp.json();
+        if (!resp.ok) {
+          subtitle.textContent = data.error || "Impossible de charger tes préférences.";
+          return;
+        }
+        for (const champ of ["nom", "email", "profil_url", "adresse", "rayon_minutes"]) {
+          form.elements[champ].value = data[champ];
+        }
+        subtitle.textContent = "Modifie ce que tu veux, puis enregistre.";
+        form.hidden = false;
+      } catch {
+        subtitle.textContent = "Erreur réseau, réessaie dans un instant.";
+      }
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const bouton = form.querySelector("button[type=submit]");
+      bouton.disabled = true;
+      message.hidden = true;
+
+      const donnees = Object.fromEntries(new FormData(form).entries());
+      donnees.rayon_minutes = Number(donnees.rayon_minutes);
+
+      try {
+        const resp = await fetch(`/api/u/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(donnees),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          afficherMessage(data.error || "Une erreur est survenue.", "error");
+        } else {
+          afficherMessage("Préférences enregistrées.", "ok");
+        }
+      } catch {
+        afficherMessage("Erreur réseau, réessaie dans un instant.", "error");
+      } finally {
+        bouton.disabled = false;
+      }
+    });
+
+    document.getElementById("btn-supprimer").addEventListener("click", async () => {
+      if (!confirm("Supprimer définitivement ton compte et tes alertes ?")) return;
+      try {
+        const resp = await fetch(`/api/u/${id}`, { method: "DELETE" });
+        const data = await resp.json();
+        if (!resp.ok) {
+          afficherMessage(data.error || "Une erreur est survenue.", "error");
+        } else {
+          form.hidden = true;
+          subtitle.textContent = "Ton compte a été supprimé.";
+        }
+      } catch {
+        afficherMessage("Erreur réseau, réessaie dans un instant.", "error");
+      }
+    });
+  </script>
+</body>
+</html>

@@ -9,8 +9,8 @@ moins de X minutes de route de chez lui.
 
 ## État actuel
 - `festnoz_alerte.py` : script fonctionnel qui...
-  1. lit `config.json` (liste d'utilisateurs, structure déjà pensée pour
-     en accueillir plusieurs bien qu'il n'y en ait qu'un seul pour l'instant)
+  1. récupère la liste des utilisateurs via l'API du site web (`webapp/`,
+     voir plus bas) plutôt que d'un fichier local
   2. scrape la page de profil public Tamm-Kreiz de l'utilisateur pour
      récupérer dynamiquement sa liste de favoris (pas besoin de login,
      cette liste est publique)
@@ -31,11 +31,10 @@ moins de X minutes de route de chez lui.
 
 ## Mise en place GitHub Actions (2026-09-14) — détails et historique
 Décisions prises avec l'utilisateur :
-- **Dépôt GitHub public.** Conséquence : `config.json` (adresse, coordonnées
-  GPS, email) et `notified.json` ne sont **jamais commités** (`.gitignore`).
-  Un `config.example.json` sert de modèle public sans données personnelles.
-  Le vrai `config.json` est reconstruit à chaque run depuis le secret GitHub
-  `CONFIG_JSON` (contenu JSON complet).
+- **Dépôt GitHub public.** Conséquence : `notified.json` n'est **jamais
+  commité** (`.gitignore`). Les données personnelles des utilisateurs vivent
+  désormais dans la base D1 de `webapp/` (voir section dédiée plus bas), plus
+  du tout dans ce dépôt.
 - **Envoi d'email via l'API HTTP de Resend** (https://resend.com).
   Historique des tentatives :
   - Protonmail en expéditeur → impossible (nécessite Bridge, incompatible
@@ -59,22 +58,26 @@ Décisions prises avec l'utilisateur :
     largement suffisant pour l'usage (100 emails/jour). Secret GitHub :
     `RESEND_API_KEY`.
 
-  **⚠️ Limite découverte à l'usage (2026-09-14) :** sans domaine vérifié,
-  Resend (comme tout service d'envoi transactionnel gratuit — protection
-  anti-spam standard du secteur) refuse d'envoyer vers une adresse
-  différente de celle du compte Resend lui-même (erreur `403 Forbidden`).
-  Donc tant qu'aucun domaine n'est vérifié : `config.json`/`CONFIG_JSON`
-  doit avoir pour chaque utilisateur `email` = l'adresse Protonmail utilisée
-  à l'inscription sur resend.com. **Ça casse la vision multi-utilisateurs**
-  (chacun avec sa propre adresse) tant qu'un domaine n'est pas vérifié.
-  Solution retenue pour l'instant : rester sur un seul utilisateur (email =
-  compte Resend), et vérifier un vrai domaine le jour où un 2e utilisateur
-  est ajouté pour de vrai. Pistes de **domaine gratuit** évoquées pour ce
-  jour-là (l'utilisateur ne veut pas payer) : **is-a.dev** (sous-domaine
-  gratuit via PR GitHub, backend Cloudflare, supporte les enregistrements
-  TXT nécessaires pour SPF/DKIM) ou **FreeDNS (afraid.org)** (inscription
-  immédiate, contrôle DNS complet). Freenom (.tk/.ml/.ga) explicitement
-  écarté : service arrêté aux nouvelles inscriptions depuis 2023.
+  **⚠️→✅ Limite découverte le 2026-09-14, résolue le 2026-09-15 :** sans
+  domaine vérifié, Resend (comme tout service d'envoi transactionnel gratuit
+  — protection anti-spam standard du secteur) refuse d'envoyer vers une
+  adresse différente de celle du compte Resend lui-même (erreur
+  `403 Forbidden`), ce qui cassait la vision multi-utilisateurs. Deux pistes
+  de domaine **gratuit** tentées et abandonnées :
+  - **is-a.dev** : bloqué par leur politique (case "lien vers un site web"
+    obligatoire pour l'approbation + interdiction explicite d'usage d'IA
+    pour rédiger les pull requests, citant nommément "Claude Code").
+  - **FreeDNS (afraid.org)** : bloqué techniquement — création
+    d'enregistrements commençant par `_` (requis pour DKIM/DMARC : `resend.
+    _domainkey`, `_dmarc`) restreinte aux propriétaires du domaine partagé
+    depuis 2016.
+
+  Solution retenue : **achat d'un vrai domaine**, `galvandans.xyz` chez
+  Porkbun (~2$ la 1ère année, ~14$/an ensuite — assumé comme un test pour le
+  CV de l'utilisateur, pas forcément durable ; `galvandans.com` à ~11$/an
+  fixe envisagé si le projet perdure). DKIM/SPF/DMARC vérifiés sans
+  restriction une fois propriétaire du domaine. `RESEND_FROM_EMAIL` mis à
+  jour vers `alertes@galvandans.xyz`.
 - **Fréquence : une fois par semaine, le lundi à 2h UTC** (réduit encore la
   sollicitation des API Tamm-Kreiz/OSRM ; changé depuis lundi/mercredi/
   vendredi le 2026-09-14 suite à un retour de l'utilisateur). Voir
@@ -97,18 +100,60 @@ Décisions prises avec l'utilisateur :
   `RESEND_API_KEY` absent → utile pour tester en local sans configurer
   l'email), + `charger_notifies()`/`sauvegarder_notifies()`, `main()`
   n'envoie que les nouvelles alertes (sauf `FORCER_ENVOI`).
-- `requirements.txt`, `config.example.json`, `.gitignore`,
-  `.github/workflows/alerte.yml`.
+- `requirements.txt`, `.gitignore`, `.github/workflows/alerte.yml`.
 
 ### Secrets GitHub configurés
-`CONFIG_JSON` (contenu complet du `config.json` réel), `RESEND_API_KEY`.
+`RESEND_API_KEY`, `USERS_API_URL`, `USERS_API_KEY` (les deux derniers
+pointent vers l'API de `webapp/`, voir section suivante — `CONFIG_JSON` a
+été retiré, plus utilisé).
+
+## Interface web self-service (`webapp/`) — 2026-09-15
+Remplace l'édition manuelle du secret `CONFIG_JSON` par un vrai formulaire :
+chaque utilisateur s'inscrit et gère ses propres préférences (profil
+Tamm-Kreiz, adresse, rayon) via un lien secret personnel, sans toucher à
+GitHub. Sert aussi de pièce à montrer sur le CV de l'utilisateur (stack
+full-stack serverless).
+
+- **Stack** : Cloudflare Pages (statique + Functions) + D1 (SQLite),
+  déployé depuis ce même dépôt (racine `webapp`, sortie `public`), configuré
+  entièrement via le dashboard Cloudflare (pas de CLI/Node nécessaire).
+  Hébergé sur `app.galvandans.xyz` (sous-domaine choisi pour ne pas toucher
+  aux enregistrements Resend déjà en place sur l'apex `galvandans.xyz`).
+- **Auth** : lien secret unique par utilisateur (UUID v4 dans l'URL,
+  `/edit.html?id=...`), pas de mot de passe. Limite assumée pour ce v1 :
+  pas de double opt-in par email à l'inscription (usage entre amis, lien non
+  indexé — `<meta name="robots" content="noindex">`).
+- **Géocodage** : adresse → lat/lon automatique via Nominatim (OpenStreetMap,
+  gratuit), côté serveur (`webapp/functions/_shared.js`).
+- **API** (`webapp/functions/api/`) : `POST /api/users` (inscription +
+  géocodage + email de bienvenue avec le lien), `GET`/`PUT`/`DELETE
+  /api/u/:id` (gestion des préférences), `GET /api/users` (liste complète,
+  protégée par le header `X-Api-Key` comparé au secret Cloudflare
+  `SYNC_API_KEY` — c'est cette route que `festnoz_alerte.py` interroge
+  désormais via `USERS_API_URL`/`USERS_API_KEY`).
+- **Schéma D1** : `webapp/schema.sql`, table `utilisateurs` avec les mêmes
+  noms de champs que l'ancien `config.json` (intégration sans friction côté
+  script Python).
+
+### Déploiement (à faire côté utilisateur, dashboard Cloudflare)
+1. Compte Cloudflare gratuit.
+2. Workers & Pages → Pages → connecter `LouarnDu/galv-an-dans`, racine
+   `webapp`, sortie `public`, pas de build.
+3. D1 → créer une base → Console → exécuter `schema.sql`.
+4. Pages → Settings → Functions → lier `DB` à la base créée.
+5. Pages → Settings → Environment variables → `RESEND_API_KEY`,
+   `SYNC_API_KEY` (nouveau secret aléatoire).
+6. Pages → Custom domains → `app.galvandans.xyz` → CNAME donné par
+   Cloudflare à ajouter côté Porkbun.
+7. Secrets GitHub : `USERS_API_URL`
+   (`https://app.galvandans.xyz/api/users`), `USERS_API_KEY` (= `SYNC_API_KEY`).
+8. L'utilisateur s'inscrit lui-même via le nouveau formulaire (remplace son
+   entrée manuelle), vérifie l'email + le lien reçus, puis confirme via un
+   run manuel du workflow (`forcer_envoi`).
 
 ## Vision à plus long terme (pas la priorité immédiate)
-- Une interface où plusieurs utilisateurs pourraient créer un compte,
-  indiquer leur profil Tamm-Kreiz, leur adresse et leur rayon — d'où le
-  choix de structurer `config.json` comme une liste dès le début.
 - Une application Android pour les réglages par utilisateur et les
-  notifications push, à la place des emails.
+  notifications push, à la place des emails/du site web.
 
 ## Contraintes
 - Ne jamais committer de mot de passe, clé API ou donnée personnelle en
