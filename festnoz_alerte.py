@@ -122,6 +122,29 @@ def evenements_futurs_du_groupe(nom: str, entity_id: str, entity_type: str) -> l
     return evenements
 
 
+def recuperer_heure_evenement(url_evenement: str) -> str | None:
+    """Scrape la page d'un événement pour récupérer son heure (absente de
+    l'API agenda mensuel). N'est appelé que pour les événements retenus
+    dans une alerte (peu nombreux), pas pour tous les événements trouvés."""
+    try:
+        resp = requests.get(url_evenement, headers=HEADERS, timeout=15)
+        resp.raise_for_status()
+    except requests.RequestException:
+        return None
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    titre_heure = soup.find("h4", string=re.compile(r"Date et heure", re.IGNORECASE))
+    if not titre_heure:
+        return None
+    detail = titre_heure.find_next("p", class_="detail_item")
+    if not detail:
+        return None
+
+    texte = detail.get_text(" ", strip=True)
+    m = re.search(r"(\d{1,2}h\d{2})", texte)
+    return m.group(1) if m else None
+
+
 def temps_trajet_minutes(depart: tuple[float, float], arrivee: tuple[float, float]) -> float | None:
     """Temps de trajet voiture via OSRM (serveur public de démo, gratuit)."""
     lat1, lon1 = depart
@@ -179,19 +202,40 @@ def sauvegarder_cache_evenements(cache: dict[str, dict]) -> None:
         json.dump(serialisable, f, ensure_ascii=False, indent=2)
 
 
+JOURS_FR = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
+MOIS_FR = [
+    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+]
+
+
+def formater_date_fr(d: date) -> str:
+    """Ex : Vendredi 5 Septembre (pas d'année, jamais nécessaire ici puisque
+    les alertes ne portent que sur des événements à venir)."""
+    return f"{JOURS_FR[d.weekday()]} {d.day} {MOIS_FR[d.month - 1]}"
+
+
 def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str]:
-    """Construit (sujet, corps) du mail récapitulatif pour une liste d'alertes."""
+    """Construit (sujet, corps) du mail récapitulatif, groupé par date."""
     sujet = f"🎶 {len(alertes)} nouvelle(s) date(s) de tes groupes favoris"
-    lignes = []
+
+    blocs = []
+    date_courante = None
     for evt in sorted(alertes, key=lambda e: e["date"]):
-        lignes.append(
-            f"[{evt['type']}] {evt['ville']} le {evt['date']}\n"
+        if evt["date"] != date_courante:
+            date_courante = evt["date"]
+            titre_date = formater_date_fr(date_courante)
+            blocs.append(f"\n{titre_date}\n{'-' * len(titre_date)}")
+
+        heure = f" à {evt['heure']}" if evt.get("heure") else ""
+        blocs.append(
+            f"{evt['type']} à {evt['ville']}{heure}\n"
             f"  Groupe(s) favori(s) : {', '.join(evt['favoris_presents'])}\n"
             f"  Plateau complet : {evt['plateau']}\n"
             f"  🚗 {evt['duree']} min de chez toi\n"
             f"  {evt['url']}\n"
         )
-    corps = "\n".join(lignes)
+    corps = "\n".join(blocs)
 
     lien_id = utilisateur.get("id")
     if lien_id:
@@ -293,7 +337,9 @@ def calculer_alertes_pour_utilisateur(utilisateur: dict) -> tuple[list[dict], se
               f"(favoris : {', '.join(evt['favoris_presents'])})")
         if duree <= max_minutes:
             evt["duree"] = duree
+            evt["heure"] = recuperer_heure_evenement(evt["url"])
             alertes.append(evt)
+            time.sleep(0.5)  # politesse envers le serveur Tamm-Kreiz
         time.sleep(1)  # politesse envers le serveur OSRM
 
     return alertes, set(tous_evenements.keys())
