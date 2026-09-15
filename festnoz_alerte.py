@@ -29,6 +29,7 @@ from bs4 import BeautifulSoup
 # formulaire, sans avoir à toucher à ce dépôt.
 
 NOTIFIED_PATH = Path(__file__).parent / "notified.json"
+CACHE_EVENEMENTS_PATH = Path(__file__).parent / "cache_evenements.json"
 
 USERS_API_URL = os.environ.get("USERS_API_URL")
 USERS_API_KEY = os.environ.get("USERS_API_KEY")
@@ -150,6 +151,32 @@ def charger_notifies() -> dict[str, list[str]]:
 def sauvegarder_notifies(notifies: dict[str, list[str]]) -> None:
     with open(NOTIFIED_PATH, "w", encoding="utf-8") as f:
         json.dump(notifies, f, ensure_ascii=False, indent=2)
+
+
+def charger_cache_evenements() -> dict[str, dict]:
+    """Cache local (par nom d'utilisateur) des derniers événements calculés
+    — permet de retester l'envoi d'email (UTILISER_CACHE) sans re-solliciter
+    Tamm-Kreiz/OSRM à chaque essai."""
+    if not CACHE_EVENEMENTS_PATH.exists():
+        return {}
+    with open(CACHE_EVENEMENTS_PATH, encoding="utf-8") as f:
+        data = json.load(f)
+    for entree in data.values():
+        for evt in entree["alertes"]:
+            evt["date"] = date.fromisoformat(evt["date"])
+    return data
+
+
+def sauvegarder_cache_evenements(cache: dict[str, dict]) -> None:
+    serialisable = {
+        nom: {
+            "alertes": [{**evt, "date": evt["date"].isoformat()} for evt in entree["alertes"]],
+            "ids_futurs": list(entree["ids_futurs"]),
+        }
+        for nom, entree in cache.items()
+    }
+    with open(CACHE_EVENEMENTS_PATH, "w", encoding="utf-8") as f:
+        json.dump(serialisable, f, ensure_ascii=False, indent=2)
 
 
 def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str]:
@@ -297,11 +324,23 @@ def main():
         print("⚙️  FORCER_ENVOI actif : l'anti-doublon est ignoré, "
               "toutes les alertes actuelles seront (re)notifiées.\n")
 
+    utiliser_cache = os.environ.get("UTILISER_CACHE", "").strip().lower() in ("1", "true", "yes")
+    cache_evenements = charger_cache_evenements() if utiliser_cache else {}
+    if utiliser_cache:
+        print("⚙️  UTILISER_CACHE actif : réutilisation des derniers événements "
+              "calculés, pas de nouvel appel à Tamm-Kreiz/OSRM.\n")
+
     for utilisateur in utilisateurs:
         nom = utilisateur["nom"]
         print(f"\n{'=' * 50}\n{nom} — {utilisateur['adresse']}\n{'=' * 50}")
 
-        alertes, ids_evenements_futurs = calculer_alertes_pour_utilisateur(utilisateur)
+        if utiliser_cache and nom in cache_evenements:
+            alertes = cache_evenements[nom]["alertes"]
+            ids_evenements_futurs = set(cache_evenements[nom]["ids_futurs"])
+            print(f"  → {len(alertes)} alerte(s) reprise(s) du cache local.")
+        else:
+            alertes, ids_evenements_futurs = calculer_alertes_pour_utilisateur(utilisateur)
+            cache_evenements[nom] = {"alertes": alertes, "ids_futurs": ids_evenements_futurs}
         afficher_alertes(utilisateur, alertes)
 
         deja_notifies = set() if forcer_envoi else set(notifies.get(nom, []))
@@ -321,6 +360,8 @@ def main():
         notifies[nom] = sorted(ids_a_retenir)
 
     sauvegarder_notifies(notifies)
+    if not utiliser_cache:
+        sauvegarder_cache_evenements(cache_evenements)
 
 
 if __name__ == "__main__":

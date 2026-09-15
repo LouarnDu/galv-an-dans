@@ -10,6 +10,10 @@ on:
         description: "Ignorer l'anti-doublon et renvoyer toutes les alertes actuelles (pratique pour tester)"
         type: boolean
         default: false
+      utiliser_cache:
+        description: "Réutiliser les événements du dernier run au lieu de rappeler Tamm-Kreiz/OSRM (pratique pour tester)"
+        type: boolean
+        default: false
 
 jobs:
   alerte:
@@ -34,12 +38,21 @@ jobs:
           restore-keys: |
             notified-
 
+      - name: Récupération du cache d'événements (pour les tests)
+        uses: actions/cache/restore@v4
+        with:
+          path: cache_evenements.json
+          key: cache-evenements-${{ github.run_id }}
+          restore-keys: |
+            cache-evenements-
+
       - name: Exécution du script d'alerte
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           USERS_API_URL: ${{ secrets.USERS_API_URL }}
           USERS_API_KEY: ${{ secrets.USERS_API_KEY }}
           FORCER_ENVOI: ${{ github.event.inputs.forcer_envoi }}
+          UTILISER_CACHE: ${{ github.event.inputs.utiliser_cache }}
         run: python festnoz_alerte.py
 
       - name: Sauvegarde des événements notifiés (cache)
@@ -48,3 +61,10 @@ jobs:
         with:
           path: notified.json
           key: notified-${{ github.run_id }}
+
+      - name: Sauvegarde du cache d'événements
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: cache_evenements.json
+          key: cache-evenements-${{ github.run_id }}

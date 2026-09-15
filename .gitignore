@@ -1,5 +1,6 @@
 # Données personnelles — ne doivent jamais être publiées (dépôt public)
 notified.json
+cache_evenements.json
 
 # Python
 __pycache__/
