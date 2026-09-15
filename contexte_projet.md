@@ -26,8 +26,14 @@ moins de X minutes de route de chez lui.
 - **GitHub Actions opérationnel et validé de bout en bout (2026-09-14)** :
   scraping des favoris, agenda Tamm-Kreiz, calcul de trajet OSRM, envoi
   d'email via Resend et anti-doublon — testé en conditions réelles, email
-  bien reçu. Cron actif : lundi/mercredi/vendredi à 2h UTC. Détails de la
-  mise en place et des choix techniques ci-dessous.
+  bien reçu. Cron actif : une fois par semaine (lundi 2h UTC).
+- **Interface web self-service opérationnelle et validée de bout en bout
+  (2026-09-15)** : inscription via `webapp/` (Cloudflare Workers) → email
+  de bienvenue reçu → lien d'édition fonctionnel → `festnoz_alerte.py`
+  récupère bien les utilisateurs via l'API (`USERS_API_URL`/`USERS_API_KEY`)
+  → alerte envoyée avec succès (reçue en spam la première fois — normal pour
+  un domaine tout juste vérifié, sans historique d'envoi). Détails
+  ci-dessous.
 
 ## Mise en place GitHub Actions (2026-09-14) — détails et historique
 Décisions prises avec l'utilisateur :
@@ -140,6 +146,37 @@ full-stack serverless).
   script Python). L'identifiant de la base (`database_id`) doit être renseigné
   dans `webapp/wrangler.jsonc` après création de la base (placeholder à
   remplacer).
+
+### ⚠️ Piège Cloudflare : "Runtime" vs "Build" variables
+Cloudflare distingue deux sections qui se ressemblent dans le dashboard du
+Worker : **"Build variables and secrets"** (utilisées uniquement pendant
+`wrangler deploy`, invisibles au code une fois déployé) et **"Runtime
+variables and secrets"** (celles que `env.MA_VARIABLE` lit réellement dans
+`src/index.js`). Une variable ajoutée dans la mauvaise section ne produit
+aucune erreur visible côté Cloudflare — le code la voit juste comme
+`undefined`. C'est ce qui a fait échouer `SYNC_API_KEY` (401 Unauthorized)
+alors que `RESEND_API_KEY` fonctionnait : seule cette dernière avait été
+ajoutée côté "Runtime". **Toujours vérifier qu'un secret/variable runtime
+est bien dans la section "Runtime variables and secrets".**
+
+### État du déploiement (2026-09-15)
+- Worker déployé et fonctionnel sur `https://galv-an-dans.<compte>.workers.dev`.
+- Base D1 `galvandans-db` créée et peuplée (schéma appliqué, premier
+  utilisateur — Ilan — inscrit via le formulaire).
+- Secrets Cloudflare (section **Runtime**) : `RESEND_API_KEY`, `SYNC_API_KEY`.
+- Secrets GitHub : `USERS_API_URL` (pointe actuellement vers l'URL
+  `*.workers.dev`), `USERS_API_KEY`. `CONFIG_JSON` supprimé.
+- **DNS migré chez Cloudflare** (nameservers Porkbun → Cloudflare) pour
+  pouvoir attacher un domaine personnalisé au Worker (Cloudflare exige que
+  la zone entière soit gérée par eux, pas juste un CNAME). Les 4
+  enregistrements Resend (DKIM/SPF×2/DMARC) ont été recréés côté Cloudflare
+  avant la baisse des nameservers Porkbun.
+- **Reste à faire** une fois la zone Cloudflare passée en statut "Active"
+  (peut prendre plusieurs heures après le changement de nameservers) :
+  attacher `app.galvandans.xyz` comme domaine personnalisé du Worker
+  (Settings → Domains & Routes), puis mettre à jour le secret GitHub
+  `USERS_API_URL` vers cette nouvelle URL (aucun autre changement de code
+  nécessaire).
 
 ### Déploiement (à faire côté utilisateur, dashboard Cloudflare)
 1. Compte Cloudflare gratuit.
