@@ -70,7 +70,7 @@ async function listerUtilisateurs(request, env) {
   }
 
   const { results } = await env.DB.prepare(
-    `SELECT nom, email, profil_url, adresse, home_lat, home_lon, rayon_minutes FROM utilisateurs`
+    `SELECT id, nom, email, profil_url, adresse, home_lat, home_lon, rayon_minutes FROM utilisateurs`
   ).all();
 
   return jsonResponse({ utilisateurs: results });

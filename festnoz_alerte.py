@@ -52,6 +52,7 @@ HEADERS = {
 # utilisable sans avoir à posséder/vérifier de domaine.
 RESEND_API_URL = "https://api.resend.com/emails"
 RESEND_FROM_EMAIL = "alertes@galvandans.xyz"
+WEBAPP_BASE_URL = "https://app.galvandans.xyz"
 
 
 def appeler_agenda_groupe(entity_id: str, entity_type: str, annee: int) -> dict | None:
@@ -151,7 +152,7 @@ def sauvegarder_notifies(notifies: dict[str, list[str]]) -> None:
         json.dump(notifies, f, ensure_ascii=False, indent=2)
 
 
-def formater_email(alertes: list[dict]) -> tuple[str, str]:
+def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str]:
     """Construit (sujet, corps) du mail récapitulatif pour une liste d'alertes."""
     sujet = f"🎶 {len(alertes)} nouvelle(s) date(s) de tes groupes favoris"
     lignes = []
@@ -164,6 +165,11 @@ def formater_email(alertes: list[dict]) -> tuple[str, str]:
             f"  {evt['url']}\n"
         )
     corps = "\n".join(lignes)
+
+    lien_id = utilisateur.get("id")
+    if lien_id:
+        corps += f"\nGérer tes préférences (adresse, rayon, profil) : {WEBAPP_BASE_URL}/edit.html?id={lien_id}\n"
+
     return sujet, corps
 
 
@@ -303,7 +309,7 @@ def main():
 
         if nouvelles_alertes:
             print(f"\n  → {len(nouvelles_alertes)} nouvelle(s) alerte(s) à notifier.")
-            sujet, corps = formater_email(nouvelles_alertes)
+            sujet, corps = formater_email(utilisateur, nouvelles_alertes)
             envoyer_email(utilisateur.get("email", ""), sujet, corps)
         else:
             print("\n  → Rien de nouveau depuis la dernière exécution, pas d'email envoyé.")
