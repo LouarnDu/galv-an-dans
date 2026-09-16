@@ -132,9 +132,12 @@ function lienIcsDirect(p) {
   return "/api/calendrier.ics?" + new URLSearchParams(params).toString();
 }
 
-function estMobile(request) {
-  const ua = request.headers.get("User-Agent") || "";
-  return /Android|iPhone|iPad|iPod/i.test(ua);
+function estAndroid(request) {
+  return /Android/i.test(request.headers.get("User-Agent") || "");
+}
+
+function estIOS(request) {
+  return /iPhone|iPad|iPod/i.test(request.headers.get("User-Agent") || "");
 }
 
 function pageChoixAgenda(p) {
@@ -170,14 +173,19 @@ function pageChoixAgenda(p) {
 }
 
 // GET /agenda — point d'entrée unique du lien "Ajouter à mon agenda" dans
-// l'email : sur mobile, sert directement le .ics (le système propose le
-// choix d'appli) ; sur desktop, affiche une petite page avec un bouton par
-// fournisseur (pas de fichier à télécharger, donc pas de souci d'association
-// de fichier).
+// l'email :
+// - Android : redirige directement vers Google Agenda (aucun fichier
+//   impliqué — les navigateurs intégrés des applis mail comme Gmail
+//   téléchargent systématiquement les .ics au lieu de proposer de les
+//   ouvrir, donc autant s'en passer).
+// - iOS : sert le .ics (Apple Calendar le gère nativement très bien).
+// - Desktop : petite page avec un bouton par fournisseur.
 function gererDemandeAgenda(request) {
   const p = extraireParamsAgenda(request);
   if (p.erreur) return errorResponse(p.erreur);
-  return estMobile(request) ? reponseICS(construireICS(p)) : pageChoixAgenda(p);
+  if (estAndroid(request)) return Response.redirect(construireLienGoogle(p), 302);
+  if (estIOS(request)) return reponseICS(construireICS(p));
+  return pageChoixAgenda(p);
 }
 
 // GET /api/calendrier.ics — le fichier .ics brut (utilisé directement par
