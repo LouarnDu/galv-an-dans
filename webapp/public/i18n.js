@@ -71,7 +71,7 @@ window.TEXTES = {
     label_rayon: "Kelc'hiad (munutennoù gant ar c'harr)",
     label_repeter: "Kas din bewech ar roll abadennoù a-bezh (e lec'h kas din a re nevez hepken)",
     bouton_creer: "Krouiñ ma c'hemenn",
-    footer_deja_inscrit: "Enskrivet out dija ? Klik war al liamm er fin ar postel az peus bet evit gwellet en-dro ha cheñch da zibaboù.",
+    footer_deja_inscrit: "Lakaet 'poa da anv dija ? Klik war al liamm er fin ar postel az peus bet evit gwellet en-dro ha cheñch da zibaboù.",
     erreur_reseau: "Fazi rouedad, klask en-dro a-benn un nebeud eiladennoù 'ta",
     titre_edit: "Ma dibaboù",
     chargement: "O kargañ...",

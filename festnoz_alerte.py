@@ -171,6 +171,37 @@ def parser_heure(heure: str) -> tuple[int, int] | None:
     return int(m.group(1)), int(m.group(2))
 
 
+def formater_heure_affichage(heure_brute: str, langue: str) -> str:
+    """Formate une heure scrapée ("20h30") pour l'affichage dans l'email,
+    selon les conventions de la langue : 24h en français (inchangé), 12h
+    am/pm en anglais, découpage traditionnel du jour en breton (beure,
+    goude kresteiz, d'abardaez, noz)."""
+    parsed = parser_heure(heure_brute)
+    if not parsed:
+        return heure_brute
+    heure, minute = parsed
+
+    if langue == "en":
+        h12 = heure % 12 or 12
+        suffixe = "am" if heure < 12 else "pm"
+        return f"{h12}{suffixe}" if minute == 0 else f"{h12}:{minute:02d}{suffixe}"
+
+    if langue == "br":
+        h12 = heure % 12 or 12
+        if heure < 12:
+            periode = "beure"
+        elif heure < 19:
+            periode = "goude kresteiz"
+        elif heure < 20:
+            periode = "d'abardaez"
+        else:
+            periode = "noz"
+        heure_txt = f"{h12}e" if minute == 0 else f"{h12}e{minute:02d}"
+        return f"{heure_txt} {periode}"
+
+    return heure_brute
+
+
 def lien_calendrier(evt: dict, langue: str = "fr") -> str:
     """Lien vers /agenda sur le site web : sert directement le .ics sur
     mobile (le système propose le choix d'appli), ou une page de choix
@@ -288,6 +319,7 @@ TRAD_EMAIL = {
         "lien_agenda": "Ajouter à mon agenda",
         "footer_gerer": "Gérer tes préférences (adresse, rayon, profil)",
         "connecteur_a": "à",
+        "connecteur_heure": "à",
         "connecteur_avec": "avec",
         "description_calendrier_voir": "Voir l'événement sur Tamm Kreiz : ",
     },
@@ -308,6 +340,7 @@ TRAD_EMAIL = {
         "lien_agenda": "Add to my calendar",
         "footer_gerer": "Manage your preferences (address, radius, profile)",
         "connecteur_a": "at",
+        "connecteur_heure": "at",
         "connecteur_avec": "with",
         "description_calendrier_voir": "View the event on Tamm Kreiz: ",
     },
@@ -317,8 +350,8 @@ TRAD_EMAIL = {
             "Genver", "C'hwevrer", "Meurzh", "Ebrel", "Mae", "Mezheven",
             "Gouere", "Eost", "Gwengolo", "Here", "Du", "Kerzu",
         ],
-        "sujet_singulier": "📣 Un deiziad nevez evit da strolladoù muiañ karet",
-        "sujet_pluriel": "📣 {n} deiziad nevez evit da strolladoù muiañ karet",
+        "sujet_singulier": "📣 Un abadenn nevez gant da strolladoù muiañ-karet",
+        "sujet_pluriel": "📣 {n} abadenn nevez gant da strolladoù muiañ-karet",
         "note_unique": "Notenn ar deiziadoù a blij dit : ne vez kaset dit an abadennoù nemet ur wech.",
         "note_repete": "Dibabet 'peus bezañ adkemennet bep sizhun eus an abadennoù, gallout a rez cheñch an dra-se en da brofil (traoñ ar postel-mañ).",
         "label_favoris": "Strolladoù muiañ-karet : ",
@@ -328,6 +361,7 @@ TRAD_EMAIL = {
         "lien_agenda": "Ouzhpennañ d'am deiziadur",
         "footer_gerer": "Merañ da zibaboù (chomlec'h, kelc'hiad, profil)",
         "connecteur_a": "e",
+        "connecteur_heure": "da",
         "connecteur_avec": "gant",
         "description_calendrier_voir": "Mont da welet an abadenn war Tamm Kreiz : ",
     },
@@ -340,9 +374,14 @@ def trad(langue: str) -> dict:
 
 def formater_date(d: date, langue: str) -> str:
     """Ex : Vendredi 5 Septembre (pas d'année, jamais nécessaire ici puisque
-    les alertes ne portent que sur des événements à venir)."""
+    les alertes ne portent que sur des événements à venir). En breton :
+    Sadorn 19 a viz Gwengolo."""
     t = trad(langue)
-    return f"{t['jours'][d.weekday()]} {d.day} {t['mois'][d.month - 1]}"
+    jour = t["jours"][d.weekday()]
+    mois = t["mois"][d.month - 1]
+    if langue == "br":
+        return f"{jour} {d.day} a viz {mois}"
+    return f"{jour} {d.day} {mois}"
 
 
 def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, str]:
@@ -368,7 +407,11 @@ def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, st
             blocs_html.append(f"<h2>{html.escape(titre_date)}</h2>")
             blocs_texte.append(f"\n{titre_date}\n{'-' * len(titre_date)}")
 
-        heure_txt = f" {t['connecteur_a']} {evt['heure']}" if evt.get("heure") else ""
+        heure_txt = (
+            f" {t['connecteur_heure']} {formater_heure_affichage(evt['heure'], langue)}"
+            if evt.get("heure")
+            else ""
+        )
         titre_evt = f"{evt['type']} {t['connecteur_a']} {evt['ville']}{heure_txt}"
         favoris_txt = ", ".join(evt["favoris_presents"])
 
