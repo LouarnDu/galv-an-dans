@@ -59,7 +59,7 @@ export const EMAIL_BIENVENUE = {
       `ton compte à tout moment. Il sera présent en bas de chaque email d'alerte.\n\n` +
       `${lien}\n\n` +
       `Ne le partage avec personne : quiconque possède ce lien peut modifier ` +
-      `tes préférences.\n`,
+      `tes préférences ou supprimer ton compte`,
   },
   en: {
     sujet: "Welcome to Galv an dañs — your management link",
@@ -70,19 +70,20 @@ export const EMAIL_BIENVENUE = {
       `Using the link below, you can change your preferences or delete your account ` +
       `at any time. It will also be included at the bottom of every alert email.\n\n` +
       `${lien}\n\n` +
-      `Don't share it with anyone: whoever has this link can change your preferences.\n`,
+      `Don't share it with anyone: whoever has this link can change your preferences ` +
+      `or delete your account.`,
   },
   br: {
     sujet: "Donemat war Galv an dañs — da liamm merañ",
     corps: (nom, lien) =>
-      `Salud ${nom},\n\n` +
-      `Krouet mat eo bet da c'hemenn fest-noz. Resevout a ri ar postel kentañ a-benn ` +
-      `un nebeud munutennoù, ha goude-se ur postel kemenn bep sizhun.\n\n` +
+      `Salud dit ${nom}, mat an traoù ganit ? \n\n` +
+      `Krouet eo bet da c'hemenn fest-noz. Ar postel kentañ 'po a-benn un nebeud ` +
+      `munutennoù, ha goude-se ur postel kemenn bep sizhun.\n\n` +
       `Dre al liamm dindan, e c'hellez cheñch da zibaboù pe zilemel da gont da bep ` +
-      `mare. Bez e vo ivez en traoñ pep postel kemenn.\n\n` +
+      `mare. Al liamm-mañ a vo ivez en traoñ pep postel kemenn.\n\n` +
       `${lien}\n\n` +
-      `Na rann ket anezhañ gant den ebet : piv bennak en deus al liamm-mañ a c'hell ` +
-      `cheñch da zibaboù.\n`,
+      `Na rein al liamm-mañ da zen : forzh piv en deus anezhañ a c'hello cheñch ` +
+      `da zibaboù pe zilemel da gont.`,
   },
 };
 
