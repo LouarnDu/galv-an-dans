@@ -54,7 +54,7 @@ HEADERS = {
 # "onboarding@resend.dev" est l'adresse d'expédition fournie par Resend,
 # utilisable sans avoir à posséder/vérifier de domaine.
 RESEND_API_URL = "https://api.resend.com/emails"
-RESEND_FROM_EMAIL = "alertes@galvandans.xyz"
+RESEND_FROM_EMAIL = "Galv an dañs - alertes fest-noz <alertes@galvandans.xyz>"
 WEBAPP_BASE_URL = "https://app.galvandans.xyz"
 
 
@@ -288,8 +288,9 @@ def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, st
         else f"📣 {n} nouvelles dates de tes groupes favoris"
     )
 
-    blocs_html = []
-    blocs_texte = []
+    note = "Pense à noter les dates qui t'intéressent : chaque événement ne t'est envoyé qu'une seule fois."
+    blocs_html = [f"<p>📌 {html.escape(note)}</p>"]
+    blocs_texte = [f"📌 {note}\n"]
     date_courante = None
     for evt in sorted(alertes, key=lambda e: e["date"]):
         if evt["date"] != date_courante:
@@ -303,6 +304,11 @@ def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, st
         favoris_txt = ", ".join(evt["favoris_presents"])
 
         lien_ics = lien_calendrier(evt)
+        style_bouton = (
+            "display:inline-block;margin-top:10px;margin-right:8px;padding:10px 16px;"
+            "background:#17212e;color:#e8edf4;border:1px solid #2a3648;border-radius:8px;"
+            "text-decoration:none;font-size:14px;"
+        )
 
         blocs_html.append(
             "<p>"
@@ -310,8 +316,8 @@ def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, st
             f"Groupe(s) favori(s) : {html.escape(favoris_txt)}<br>"
             f"Plateau complet : {html.escape(evt['plateau'])}<br>"
             f"🚗 {evt['duree']} min de chez toi<br>"
-            f'<a href="{html.escape(evt["url"])}">Voir sur Tamm Kreiz</a><br>'
-            f'<a href="{html.escape(lien_ics)}">Ajouter à mon agenda</a>'
+            f'<a href="{html.escape(evt["url"])}" style="{style_bouton}">Voir sur Tamm Kreiz</a>'
+            f'<a href="{html.escape(lien_ics)}" style="{style_bouton}">Ajouter à mon agenda</a>'
             "</p>"
         )
         blocs_texte.append(
@@ -457,6 +463,13 @@ def afficher_alertes(utilisateur: dict, alertes: list[dict]) -> None:
 
 def main():
     utilisateurs = charger_config()
+
+    utilisateur_id = os.environ.get("UTILISATEUR_ID", "").strip()
+    if utilisateur_id:
+        utilisateurs = [u for u in utilisateurs if u.get("id") == utilisateur_id]
+        print(f"⚙️  UTILISATEUR_ID actif : traitement limité à cet utilisateur "
+              f"({len(utilisateurs)} trouvé(s)).\n")
+
     notifies = charger_notifies()
 
     forcer_envoi = os.environ.get("FORCER_ENVOI", "").strip().lower() in ("1", "true", "yes")

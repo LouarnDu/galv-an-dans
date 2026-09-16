@@ -1,4 +1,11 @@
-import { jsonResponse, errorResponse, geocodeAdresse, envoyerEmailBienvenue, genererId } from "./shared.js";
+import {
+  jsonResponse,
+  errorResponse,
+  geocodeAdresse,
+  envoyerEmailBienvenue,
+  declencherAlerteImmediate,
+  genererId,
+} from "./shared.js";
 
 const RAYON_MAX_MINUTES = 300;
 
@@ -217,7 +224,7 @@ function validerEntree(body) {
 }
 
 // POST /api/users — inscription d'un nouvel utilisateur.
-async function creerUtilisateur(request, env) {
+async function creerUtilisateur(request, env, ctx) {
   let body;
   try {
     body = await request.json();
@@ -257,6 +264,10 @@ async function creerUtilisateur(request, env) {
     await env.DB.prepare(`DELETE FROM utilisateurs WHERE id = ?`).bind(id).run();
     return errorResponse("Erreur lors de l'envoi de l'email, réessaie dans quelques instants.", 502);
   }
+
+  // Déclenche une première alerte immédiate pour ce seul utilisateur,
+  // sans attendre le prochain run hebdomadaire. Ne bloque pas la réponse.
+  ctx.waitUntil(declencherAlerteImmediate(env, id));
 
   return jsonResponse({ ok: true, message: "Vérifie tes emails pour récupérer ton lien de gestion." }, 201);
 }
@@ -337,7 +348,7 @@ async function supprimerUtilisateur(id, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const { pathname } = url;
     const { method } = request;
@@ -351,7 +362,7 @@ export default {
     }
 
     if (pathname === "/api/users") {
-      if (method === "POST") return creerUtilisateur(request, env);
+      if (method === "POST") return creerUtilisateur(request, env, ctx);
       if (method === "GET") return listerUtilisateurs(request, env);
     }
 

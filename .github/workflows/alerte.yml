@@ -14,6 +14,10 @@ on:
         description: "Réutiliser les événements du dernier run au lieu de rappeler Tamm-Kreiz/OSRM (pratique pour tester)"
         type: boolean
         default: false
+      utilisateur_id:
+        description: "Traiter seulement cet utilisateur (id) — déclenché automatiquement par le site à l'inscription, laisser vide pour tout le monde"
+        type: string
+        default: ""
 
 jobs:
   alerte:
@@ -53,6 +57,7 @@ jobs:
           USERS_API_KEY: ${{ secrets.USERS_API_KEY }}
           FORCER_ENVOI: ${{ github.event.inputs.forcer_envoi }}
           UTILISER_CACHE: ${{ github.event.inputs.utiliser_cache }}
+          UTILISATEUR_ID: ${{ github.event.inputs.utilisateur_id }}
         run: python festnoz_alerte.py
 
       - name: Sauvegarde des événements notifiés (cache)
