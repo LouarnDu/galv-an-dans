@@ -139,13 +139,17 @@ window.initSelecteurLangue = function initSelecteurLangue(conteneur) {
   const drapeauBreton = `<svg viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg">
     <rect width="30" height="20" fill="#000"/>
     <g fill="#fff">
-      <rect y="4" width="30" height="4"/>
-      <rect y="12" width="30" height="4"/>
+      <rect y="2.22" width="30" height="2.23"/>
+      <rect y="6.67" width="30" height="2.23"/>
+      <rect y="11.11" width="30" height="2.23"/>
+      <rect y="15.56" width="30" height="2.22"/>
     </g>
-    <rect width="13" height="12" fill="#fff"/>
+    <rect width="13" height="11.11" fill="#fff"/>
     <g fill="#000">
-      <circle cx="4" cy="4" r="1.3"/><circle cx="9" cy="4" r="1.3"/>
-      <circle cx="4" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/>
+      <circle cx="3" cy="2.2" r="0.9"/><circle cx="6.5" cy="2.2" r="0.9"/><circle cx="10" cy="2.2" r="0.9"/>
+      <circle cx="4.7" cy="4.8" r="0.9"/><circle cx="8.3" cy="4.8" r="0.9"/>
+      <circle cx="3" cy="7.4" r="0.9"/><circle cx="6.5" cy="7.4" r="0.9"/><circle cx="10" cy="7.4" r="0.9"/>
+      <circle cx="4.7" cy="10" r="0.9"/><circle cx="8.3" cy="10" r="0.9"/>
     </g>
   </svg>`;
 
