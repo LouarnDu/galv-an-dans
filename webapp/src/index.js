@@ -6,7 +6,7 @@ import {
   declencherAlerteImmediate,
   genererId,
 } from "./shared.js";
-import { messagesPour } from "./i18n.js";
+import { messagesPour, normaliserLangue } from "./i18n.js";
 
 const RAYON_MAX_MINUTES = 300;
 
@@ -213,7 +213,7 @@ function validerEntree(body, msgs) {
   if (!body || typeof body !== "object") return msgs.corps_invalide;
   if (!body.nom || typeof body.nom !== "string" || !body.nom.trim()) return msgs.nom_requis;
   if (!body.email || typeof body.email !== "string" || !body.email.includes("@")) return msgs.email_invalide;
-  if (!body.profil_url || !body.profil_url.startsWith("https://tamm-kreiz.bzh/")) {
+  if (!body.profil_url || !/^https:\/\/(www\.)?tamm-kreiz\.bzh\//.test(body.profil_url)) {
     return msgs.profil_invalide;
   }
   if (!body.adresse || typeof body.adresse !== "string" || !body.adresse.trim()) return msgs.adresse_requise;
@@ -243,9 +243,10 @@ async function creerUtilisateur(request, env, ctx) {
   }
 
   const id = genererId();
+  const langue = normaliserLangue(body.langue);
   await env.DB.prepare(
-    `INSERT INTO utilisateurs (id, nom, email, profil_url, adresse, home_lat, home_lon, rayon_minutes, repeter_evenements)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO utilisateurs (id, nom, email, profil_url, adresse, home_lat, home_lon, rayon_minutes, repeter_evenements, langue)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       id,
@@ -256,12 +257,13 @@ async function creerUtilisateur(request, env, ctx) {
       coords.lat,
       coords.lon,
       Math.round(Number(body.rayon_minutes)),
-      body.repeter_evenements ? 1 : 0
+      body.repeter_evenements ? 1 : 0,
+      langue
     )
     .run();
 
   const lienEdition = `${new URL(request.url).origin}/edit.html?id=${id}`;
-  const emailEnvoye = await envoyerEmailBienvenue(env, body.email.trim(), body.nom.trim(), lienEdition);
+  const emailEnvoye = await envoyerEmailBienvenue(env, body.email.trim(), body.nom.trim(), lienEdition, langue);
 
   if (!emailEnvoye) {
     await env.DB.prepare(`DELETE FROM utilisateurs WHERE id = ?`).bind(id).run();
@@ -283,7 +285,7 @@ async function listerUtilisateurs(request, env) {
   }
 
   const { results } = await env.DB.prepare(
-    `SELECT id, nom, email, profil_url, adresse, home_lat, home_lon, rayon_minutes, repeter_evenements FROM utilisateurs`
+    `SELECT id, nom, email, profil_url, adresse, home_lat, home_lon, rayon_minutes, repeter_evenements, langue FROM utilisateurs`
   ).all();
 
   return jsonResponse({ utilisateurs: results });
@@ -293,7 +295,7 @@ async function listerUtilisateurs(request, env) {
 async function obtenirUtilisateur(id, request, env) {
   const msgs = messagesPour(request);
   const row = await env.DB.prepare(
-    `SELECT nom, email, profil_url, adresse, rayon_minutes, repeter_evenements FROM utilisateurs WHERE id = ?`
+    `SELECT nom, email, profil_url, adresse, rayon_minutes, repeter_evenements, langue FROM utilisateurs WHERE id = ?`
   )
     .bind(id)
     .first();
@@ -325,7 +327,7 @@ async function modifierUtilisateur(id, request, env) {
 
   await env.DB.prepare(
     `UPDATE utilisateurs
-     SET nom = ?, email = ?, profil_url = ?, adresse = ?, home_lat = ?, home_lon = ?, rayon_minutes = ?, repeter_evenements = ?
+     SET nom = ?, email = ?, profil_url = ?, adresse = ?, home_lat = ?, home_lon = ?, rayon_minutes = ?, repeter_evenements = ?, langue = ?
      WHERE id = ?`
   )
     .bind(
@@ -337,6 +339,7 @@ async function modifierUtilisateur(id, request, env) {
       coords.lon,
       Math.round(Number(body.rayon_minutes)),
       body.repeter_evenements ? 1 : 0,
+      normaliserLangue(body.langue),
       id
     )
     .run();

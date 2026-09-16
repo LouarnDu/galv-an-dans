@@ -1,5 +1,7 @@
 // Utilitaires partagés par les routes API.
 
+import { EMAIL_BIENVENUE } from "./i18n.js";
+
 export function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -27,18 +29,12 @@ export async function geocodeAdresse(adresse) {
   return { lat: parseFloat(resultats[0].lat), lon: parseFloat(resultats[0].lon) };
 }
 
-// Envoie l'email de bienvenue contenant le lien secret d'édition, via l'API Resend.
-export async function envoyerEmailBienvenue(env, destinataire, nom, lienEdition) {
-  const sujet = "Bienvenue sur Galv an dañs — ton lien de gestion";
-  const corps =
-    `Salut ${nom},\n\n` +
-    `Ton alerte fest-noz est bien créée. Tu recevras le premier email d'ici ` +
-    `quelques minutes puis un email d'alerte par semaine.\n\n` +
-    `Via le lien ci-dessous, tu pourras modifier tes préférences ou supprimer ` +
-    `ton compte à tout moment. Il sera présent en bas de chaque email d'alerte.\n\n` +
-    `${lienEdition}\n\n` +
-    `Ne le partage avec personne : quiconque possède ce lien peut modifier ` +
-    `tes préférences.\n`;
+// Envoie l'email de bienvenue contenant le lien secret d'édition, via l'API
+// Resend, dans la langue choisie par l'utilisateur (retombe sur le français).
+export async function envoyerEmailBienvenue(env, destinataire, nom, lienEdition, langue) {
+  const textes = EMAIL_BIENVENUE[langue] || EMAIL_BIENVENUE.fr;
+  const sujet = textes.sujet;
+  const corps = textes.corps(nom, lienEdition);
 
   const resp = await fetch("https://api.resend.com/emails", {
     method: "POST",

@@ -40,9 +40,49 @@ export const MESSAGES = {
     json_invalide: "Korf goulenn JSON direizh.",
     adresse_introuvable: "N'eo ket bet kavet ar chomlec'h, \ngwir da reizhskrivadur ha klask en-dro.",
     erreur_envoi_email: "Fazi en ur gas ar postel, klask en-dro a-benn un nebeud munutennoù.",
-    succes_inscription: "Gwir da bostel evit kavout da liamm merañ.",
+    succes_inscription: "Sell ouzh da vouest-postel da gavout da liamm merañ",
     lien_invalide: "Liamm direizh pe gont dilamet.",
     lien_invalide_suppr: "Liamm direizh pe gont dilamet dija.",
+  },
+};
+
+// Email de bienvenue envoyé à l'inscription (sujet fixe + corps généré à
+// partir du prénom et du lien d'édition).
+export const EMAIL_BIENVENUE = {
+  fr: {
+    sujet: "Bienvenue sur Galv an dañs — ton lien de gestion",
+    corps: (nom, lien) =>
+      `Salut ${nom},\n\n` +
+      `Ton alerte fest-noz est bien créée. Tu recevras le premier email d'ici ` +
+      `quelques minutes puis un email d'alerte par semaine.\n\n` +
+      `Via le lien ci-dessous, tu pourras modifier tes préférences ou supprimer ` +
+      `ton compte à tout moment. Il sera présent en bas de chaque email d'alerte.\n\n` +
+      `${lien}\n\n` +
+      `Ne le partage avec personne : quiconque possède ce lien peut modifier ` +
+      `tes préférences.\n`,
+  },
+  en: {
+    sujet: "Welcome to Galv an dañs — your management link",
+    corps: (nom, lien) =>
+      `Hi ${nom},\n\n` +
+      `Your fest-noz alert is all set up. You'll get your first email within a few ` +
+      `minutes, then one alert email a week.\n\n` +
+      `Using the link below, you can change your preferences or delete your account ` +
+      `at any time. It will also be included at the bottom of every alert email.\n\n` +
+      `${lien}\n\n` +
+      `Don't share it with anyone: whoever has this link can change your preferences.\n`,
+  },
+  br: {
+    sujet: "Donemat war Galv an dañs — da liamm merañ",
+    corps: (nom, lien) =>
+      `Salud ${nom},\n\n` +
+      `Krouet mat eo bet da c'hemenn fest-noz. Resevout a ri ar postel kentañ a-benn ` +
+      `un nebeud munutennoù, ha goude-se ur postel kemenn bep sizhun.\n\n` +
+      `Dre al liamm dindan, e c'hellez cheñch da zibaboù pe zilemel da gont da bep ` +
+      `mare. Bez e vo ivez en traoñ pep postel kemenn.\n\n` +
+      `${lien}\n\n` +
+      `Na rann ket anezhañ gant den ebet : piv bennak en deus al liamm-mañ a c'hell ` +
+      `cheñch da zibaboù.\n`,
   },
 };
 
@@ -53,4 +93,11 @@ export function extraireLangue(request) {
 
 export function messagesPour(request) {
   return MESSAGES[extraireLangue(request)];
+}
+
+// Valide/normalise une langue fournie par le client (ex: le champ "langue"
+// du formulaire d'inscription) — retombe sur "fr" si absente ou inconnue.
+export function normaliserLangue(langue) {
+  const v = String(langue || "fr").toLowerCase();
+  return MESSAGES[v] ? v : "fr";
 }

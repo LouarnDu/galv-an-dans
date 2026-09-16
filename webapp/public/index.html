@@ -36,7 +36,7 @@
           type="url"
           name="profil_url"
           required
-          pattern="https://tamm-kreiz\.bzh/.*"
+          pattern="https://(www\.)?tamm-kreiz\.bzh/.*"
           placeholder="https://tamm-kreiz.bzh/profil/..."
         />
       </label>
@@ -89,6 +89,7 @@
       const donnees = Object.fromEntries(new FormData(form).entries());
       donnees.rayon_minutes = Number(donnees.rayon_minutes);
       donnees.repeter_evenements = form.repeter_evenements.checked;
+      donnees.langue = window.langueActuelle;
 
       try {
         const resp = await fetch("/api/users", {

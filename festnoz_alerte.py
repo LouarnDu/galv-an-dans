@@ -171,19 +171,23 @@ def parser_heure(heure: str) -> tuple[int, int] | None:
     return int(m.group(1)), int(m.group(2))
 
 
-def lien_calendrier(evt: dict) -> str:
+def lien_calendrier(evt: dict, langue: str = "fr") -> str:
     """Lien vers /agenda sur le site web : sert directement le .ics sur
     mobile (le système propose le choix d'appli), ou une page de choix
     Google/Outlook/Apple sur desktop — adapté à l'appareil qui clique."""
-    titre = f"{evt['type']} à {evt['ville']} avec " + " - ".join(evt["favoris_presents"])
+    t = trad(langue)
+    titre = (
+        f"{evt['type']} {t['connecteur_a']} {evt['ville']} {t['connecteur_avec']} "
+        + " - ".join(evt["favoris_presents"])
+    )
     lieu = evt.get("adresse") or evt["ville"]
-    description = f"{evt['plateau']}\n\nVoir l'événement sur Tamm Kreiz : {evt['url']}"
+    description = f"{evt['plateau']}\n\n{t['description_calendrier_voir']}{evt['url']}"
     # Version HTML utilisée par Google Agenda/Outlook (qui rendent les liens
     # dans la description) — le .ics garde la version texte brut ci-dessus,
     # car le format iCalendar n'affiche pas le HTML.
     description_html = (
         f"{html.escape(evt['plateau'])}<br><br>"
-        f'<a href="{html.escape(evt["url"])}">Voir sur Tamm Kreiz</a>'
+        f'<a href="{html.escape(evt["url"])}">{html.escape(t["lien_tammkreiz"])}</a>'
     )
 
     params = {
@@ -263,53 +267,112 @@ def sauvegarder_cache_evenements(cache: dict[str, dict]) -> None:
         json.dump(serialisable, f, ensure_ascii=False, indent=2)
 
 
-JOURS_FR = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
-MOIS_FR = [
-    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
-]
+# Traductions du contenu des emails (sujet, corps). La langue de chaque
+# utilisateur vient du champ "langue" renvoyé par l'API (choisie sur le
+# site web à l'inscription/l'édition), repli sur le français par défaut.
+TRAD_EMAIL = {
+    "fr": {
+        "jours": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"],
+        "mois": [
+            "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+            "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+        ],
+        "sujet_singulier": "📣 1 nouvelle date de tes groupes favoris",
+        "sujet_pluriel": "📣 {n} nouvelles dates de tes groupes favoris",
+        "note_unique": "Pense à noter les dates qui t'intéressent : chaque événement ne t'est envoyé qu'une seule fois.",
+        "note_repete": "Tu as choisi d'être re-notifié.e chaque semaine des événements, tu peux changer cela dans ton profil (en bas de cet e-mail).",
+        "label_favoris": "Groupe(s) favori(s) : ",
+        "label_plateau": "Plateau complet : ",
+        "label_distance": " min de chez toi",
+        "lien_tammkreiz": "Voir sur Tamm Kreiz",
+        "lien_agenda": "Ajouter à mon agenda",
+        "footer_gerer": "Gérer tes préférences (adresse, rayon, profil)",
+        "connecteur_a": "à",
+        "connecteur_avec": "avec",
+        "description_calendrier_voir": "Voir l'événement sur Tamm Kreiz : ",
+    },
+    "en": {
+        "jours": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        "mois": [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December",
+        ],
+        "sujet_singulier": "📣 1 new date for your favourite bands",
+        "sujet_pluriel": "📣 {n} new dates for your favourite bands",
+        "note_unique": "Make a note of the dates you're interested in: each event is only ever sent to you once.",
+        "note_repete": "You've chosen to be reminded of events every week — you can change that in your profile (at the bottom of this email).",
+        "label_favoris": "Favourite band(s): ",
+        "label_plateau": "Full line-up: ",
+        "label_distance": " min from your place",
+        "lien_tammkreiz": "View on Tamm Kreiz",
+        "lien_agenda": "Add to my calendar",
+        "footer_gerer": "Manage your preferences (address, radius, profile)",
+        "connecteur_a": "at",
+        "connecteur_avec": "with",
+        "description_calendrier_voir": "View the event on Tamm Kreiz: ",
+    },
+    "br": {
+        "jours": ["Lun", "Meurzh", "Merc'her", "Yaou", "Gwener", "Sadorn", "Sul"],
+        "mois": [
+            "Genver", "C'hwevrer", "Meurzh", "Ebrel", "Mae", "Mezheven",
+            "Gouere", "Eost", "Gwengolo", "Here", "Du", "Kerzu",
+        ],
+        "sujet_singulier": "📣 Un deiziad nevez evit da strolladoù muiañ karet",
+        "sujet_pluriel": "📣 {n} deiziad nevez evit da strolladoù muiañ karet",
+        "note_unique": "Notenn ar deiziadoù a blij dit : ne vez kaset dit un degouezh nemet ur wezh.",
+        "note_repete": "Dibabet ec'h eus bezañ adkemennet bep sizhun eus an degouezhioù, gallout a rez cheñch se en da brofil (en traoñ ar postel-mañ).",
+        "label_favoris": "Strolladoù karet : ",
+        "label_plateau": "Ar roll leun : ",
+        "label_distance": " min diouzh da di",
+        "lien_tammkreiz": "Gwelet war Tamm Kreiz",
+        "lien_agenda": "Ouzhpennañ d'am c'halandrier",
+        "footer_gerer": "Merañ da zibaboù (chomlec'h, skin, profil)",
+        "connecteur_a": "e",
+        "connecteur_avec": "gant",
+        "description_calendrier_voir": "Gwelet an degouezh war Tamm Kreiz : ",
+    },
+}
 
 
-def formater_date_fr(d: date) -> str:
+def trad(langue: str) -> dict:
+    return TRAD_EMAIL.get(langue, TRAD_EMAIL["fr"])
+
+
+def formater_date(d: date, langue: str) -> str:
     """Ex : Vendredi 5 Septembre (pas d'année, jamais nécessaire ici puisque
     les alertes ne portent que sur des événements à venir)."""
-    return f"{JOURS_FR[d.weekday()]} {d.day} {MOIS_FR[d.month - 1]}"
+    t = trad(langue)
+    return f"{t['jours'][d.weekday()]} {d.day} {t['mois'][d.month - 1]}"
 
 
 def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, str]:
     """Construit (sujet, corps_html, corps_texte) du mail récapitulatif,
-    groupé par date. La version HTML porte les liens cliquables ("voir sur
-    Tamm Kreiz", "ajouter à mon calendrier") ; la version texte sert de
-    secours pour les clients mail qui n'affichent pas le HTML."""
-    n = len(alertes)
-    sujet = (
-        f"📣 {n} nouvelle date de tes groupes favoris"
-        if n == 1
-        else f"📣 {n} nouvelles dates de tes groupes favoris"
-    )
+    groupé par date, dans la langue de l'utilisateur. La version HTML porte
+    les liens cliquables ("voir sur Tamm Kreiz", "ajouter à mon agenda") ;
+    la version texte sert de secours pour les clients mail qui n'affichent
+    pas le HTML."""
+    langue = utilisateur.get("langue") or "fr"
+    t = trad(langue)
 
-    if utilisateur.get("repeter_evenements"):
-        note = (
-            "Tu as choisi d'être re-notifié.e chaque semaine des événements, "
-            "tu peux changer cela dans ton profil (en bas de cet e-mail)."
-        )
-    else:
-        note = "Pense à noter les dates qui t'intéressent : chaque événement ne t'est envoyé qu'une seule fois."
+    n = len(alertes)
+    sujet = t["sujet_singulier"] if n == 1 else t["sujet_pluriel"].format(n=n)
+
+    note = t["note_repete"] if utilisateur.get("repeter_evenements") else t["note_unique"]
     blocs_html = [f"<p>📌 {html.escape(note)}</p>"]
     blocs_texte = [f"📌 {note}\n"]
     date_courante = None
     for evt in sorted(alertes, key=lambda e: e["date"]):
         if evt["date"] != date_courante:
             date_courante = evt["date"]
-            titre_date = formater_date_fr(date_courante)
+            titre_date = formater_date(date_courante, langue)
             blocs_html.append(f"<h2>{html.escape(titre_date)}</h2>")
             blocs_texte.append(f"\n{titre_date}\n{'-' * len(titre_date)}")
 
-        heure_txt = f" à {evt['heure']}" if evt.get("heure") else ""
-        titre_evt = f"{evt['type']} à {evt['ville']}{heure_txt}"
+        heure_txt = f" {t['connecteur_a']} {evt['heure']}" if evt.get("heure") else ""
+        titre_evt = f"{evt['type']} {t['connecteur_a']} {evt['ville']}{heure_txt}"
         favoris_txt = ", ".join(evt["favoris_presents"])
 
-        lien_ics = lien_calendrier(evt)
+        lien_ics = lien_calendrier(evt, langue)
         style_bouton = (
             "display:inline-block;margin-top:10px;margin-right:8px;padding:10px 16px;"
             "background:#17212e;color:#e8edf4;border:1px solid #2a3648;border-radius:8px;"
@@ -319,20 +382,20 @@ def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, st
         blocs_html.append(
             "<p>"
             f"<strong>{html.escape(titre_evt)}</strong><br>"
-            f"Groupe(s) favori(s) : {html.escape(favoris_txt)}<br>"
-            f"Plateau complet : {html.escape(evt['plateau'])}<br>"
-            f"🚗 {evt['duree']} min de chez toi<br>"
-            f'<a href="{html.escape(evt["url"])}" style="{style_bouton}">Voir sur Tamm Kreiz</a>'
-            f'<a href="{html.escape(lien_ics)}" style="{style_bouton}">Ajouter à mon agenda</a>'
+            f"{html.escape(t['label_favoris'])}{html.escape(favoris_txt)}<br>"
+            f"{html.escape(t['label_plateau'])}{html.escape(evt['plateau'])}<br>"
+            f"🚗 {evt['duree']}{html.escape(t['label_distance'])}<br>"
+            f'<a href="{html.escape(evt["url"])}" style="{style_bouton}">{html.escape(t["lien_tammkreiz"])}</a>'
+            f'<a href="{html.escape(lien_ics)}" style="{style_bouton}">{html.escape(t["lien_agenda"])}</a>'
             "</p>"
         )
         blocs_texte.append(
             f"{titre_evt}\n"
-            f"  Groupe(s) favori(s) : {favoris_txt}\n"
-            f"  Plateau complet : {evt['plateau']}\n"
-            f"  🚗 {evt['duree']} min de chez toi\n"
-            f"  Voir sur Tamm Kreiz : {evt['url']}\n"
-            f"  Ajouter à mon agenda : {lien_ics}\n"
+            f"  {t['label_favoris']}{favoris_txt}\n"
+            f"  {t['label_plateau']}{evt['plateau']}\n"
+            f"  🚗 {evt['duree']}{t['label_distance']}\n"
+            f"  {t['lien_tammkreiz']} : {evt['url']}\n"
+            f"  {t['lien_agenda']} : {lien_ics}\n"
         )
 
     pied_html = ""
@@ -340,8 +403,8 @@ def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, st
     lien_id = utilisateur.get("id")
     if lien_id:
         lien_prefs = f"{WEBAPP_BASE_URL}/edit.html?id={lien_id}"
-        pied_html = f'<p><a href="{html.escape(lien_prefs)}">Gérer tes préférences</a> (adresse, rayon, profil)</p>'
-        pied_texte = f"\nGérer tes préférences (adresse, rayon, profil) : {lien_prefs}\n"
+        pied_html = f'<p><a href="{html.escape(lien_prefs)}">{html.escape(t["footer_gerer"])}</a></p>'
+        pied_texte = f"\n{t['footer_gerer']} : {lien_prefs}\n"
 
     corps_html = "<html><body>" + "".join(blocs_html) + pied_html + "</body></html>"
     corps_texte = "\n".join(blocs_texte) + pied_texte

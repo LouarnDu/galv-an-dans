@@ -36,7 +36,7 @@ window.TEXTES = {
   en: {
     titre_principal: "Galv an dañs — call to the dance",
     soustitre_accueil:
-      "Get an email alert when your favourite bands (those you follow on Tamm-Kreiz) play a fest-noz, fest-deiz or concert near you.",
+      "Get an email alert when your favourite bands (those you follow on Tamm-Kreiz) play in a fest-noz, fest-deiz or concert near you.",
     label_prenom: "Your first name",
     label_email: "Your email",
     hint_email: "To receive your alerts",

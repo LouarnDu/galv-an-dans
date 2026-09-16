@@ -31,7 +31,7 @@
           type="url"
           name="profil_url"
           required
-          pattern="https://tamm-kreiz\.bzh/.*"
+          pattern="https://(www\.)?tamm-kreiz\.bzh/.*"
         />
       </label>
 
@@ -93,6 +93,7 @@
           form.elements[champ].value = data[champ];
         }
         form.elements.repeter_evenements.checked = Boolean(data.repeter_evenements);
+        if (data.langue) appliquerLangue(data.langue);
         subtitle.removeAttribute("data-i18n");
         subtitle.textContent = window.TEXTES[window.langueActuelle].pret_a_modifier;
         form.hidden = false;
@@ -111,6 +112,7 @@
       const donnees = Object.fromEntries(new FormData(form).entries());
       donnees.rayon_minutes = Number(donnees.rayon_minutes);
       donnees.repeter_evenements = form.repeter_evenements.checked;
+      donnees.langue = window.langueActuelle;
 
       try {
         const resp = await fetch(`/api/u/${id}`, {
