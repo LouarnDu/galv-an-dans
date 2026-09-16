@@ -172,9 +172,9 @@ def parser_heure(heure: str) -> tuple[int, int] | None:
 
 
 def lien_calendrier(evt: dict) -> str:
-    """Lien vers un fichier .ics (iCalendar) généré à la volée par le site
-    web — format universel compatible Google, Outlook, Apple Calendar, etc.,
-    plutôt qu'un lien spécifique à un seul fournisseur."""
+    """Lien vers /agenda sur le site web : sert directement le .ics sur
+    mobile (le système propose le choix d'appli), ou une page de choix
+    Google/Outlook/Apple sur desktop — adapté à l'appareil qui clique."""
     titre = f"{evt['type']} à {evt['duree']}min - " + " - ".join(evt["favoris_presents"])
     lieu = evt.get("adresse") or evt["ville"]
     description = f"{evt['plateau']}\n\nVoir l'événement sur Tamm Kreiz : {evt['url']}"
@@ -190,7 +190,7 @@ def lien_calendrier(evt: dict) -> str:
     else:
         params["jour"] = evt["date"].isoformat()
 
-    return f"{WEBAPP_BASE_URL}/api/calendrier.ics?" + urlencode(params)
+    return f"{WEBAPP_BASE_URL}/agenda?" + urlencode(params)
 
 
 def temps_trajet_minutes(depart: tuple[float, float], arrivee: tuple[float, float]) -> float | None:

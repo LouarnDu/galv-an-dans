@@ -10,62 +10,182 @@ function echapperICS(texte) {
     .replace(/\n/g, "\\n");
 }
 
-function jourSuivantISO(jourStr) {
-  const d = new Date(`${jourStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().slice(0, 10).replace(/-/g, "");
+function echapperHtml(texte) {
+  return String(texte)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
-// GET /api/calendrier.ics — génère un événement iCalendar (.ics) universel
-// (Google, Outlook, Apple Calendar, etc.) à partir de paramètres passés en
-// query string. Public et sans état : ne fait que renvoyer ce qu'on lui a
-// donné, mis en forme.
-function genererCalendrierIcs(request) {
-  const params = new URL(request.url).searchParams;
-  const id = params.get("id") || "evt";
-  const titre = params.get("titre");
-  const description = params.get("description") || "";
-  const lieu = params.get("lieu") || "";
-  const debut = params.get("debut");
-  const fin = params.get("fin");
-  const jour = params.get("jour");
+// Renvoie la date du lendemain (jourStr au format YYYY-MM-DD), avec ou sans tirets.
+function jourSuivant(jourStr, avecTirets) {
+  const d = new Date(`${jourStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  const iso = d.toISOString().slice(0, 10);
+  return avecTirets ? iso : iso.replace(/-/g, "");
+}
 
-  if (!titre) return errorResponse("Paramètre 'titre' manquant.");
+// Lit et valide les paramètres communs à toutes les routes calendrier.
+// Retourne soit {erreur}, soit les paramètres prêts à l'emploi.
+function extraireParamsAgenda(request) {
+  const sp = new URL(request.url).searchParams;
+  const titre = sp.get("titre");
+  const debut = sp.get("debut");
+  const fin = sp.get("fin");
+  const jour = sp.get("jour");
+
+  if (!titre) return { erreur: "Paramètre 'titre' manquant." };
   if (!jour && (!debut || !fin)) {
-    return errorResponse("Paramètres 'debut'/'fin' (événement avec horaire) ou 'jour' (journée complète) manquants.");
+    return { erreur: "Paramètres 'debut'/'fin' (événement avec horaire) ou 'jour' (journée complète) manquants." };
   }
 
+  return {
+    id: sp.get("id") || "evt",
+    titre,
+    description: sp.get("description") || "",
+    lieu: sp.get("lieu") || "",
+    debut,
+    fin,
+    jour,
+  };
+}
+
+function construireICS(p) {
   const dtstamp = `${new Date().toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
   const lignes = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Galv an dañs//FR",
     "BEGIN:VEVENT",
-    `UID:evt-${id}@galvandans.xyz`,
+    `UID:evt-${p.id}@galvandans.xyz`,
     `DTSTAMP:${dtstamp}`,
   ];
 
-  if (jour) {
-    const j = jour.replace(/-/g, "");
-    lignes.push(`DTSTART;VALUE=DATE:${j}`, `DTEND;VALUE=DATE:${jourSuivantISO(jour)}`);
+  if (p.jour) {
+    lignes.push(
+      `DTSTART;VALUE=DATE:${p.jour.replace(/-/g, "")}`,
+      `DTEND;VALUE=DATE:${jourSuivant(p.jour, false)}`
+    );
   } else {
     lignes.push(
-      `DTSTART;TZID=Europe/Paris:${debut.replace(/[-:]/g, "")}`,
-      `DTEND;TZID=Europe/Paris:${fin.replace(/[-:]/g, "")}`
+      `DTSTART;TZID=Europe/Paris:${p.debut.replace(/[-:]/g, "")}`,
+      `DTEND;TZID=Europe/Paris:${p.fin.replace(/[-:]/g, "")}`
     );
   }
 
-  lignes.push(`SUMMARY:${echapperICS(titre)}`);
-  if (description) lignes.push(`DESCRIPTION:${echapperICS(description)}`);
-  if (lieu) lignes.push(`LOCATION:${echapperICS(lieu)}`);
+  lignes.push(`SUMMARY:${echapperICS(p.titre)}`);
+  if (p.description) lignes.push(`DESCRIPTION:${echapperICS(p.description)}`);
+  if (p.lieu) lignes.push(`LOCATION:${echapperICS(p.lieu)}`);
   lignes.push("END:VEVENT", "END:VCALENDAR");
 
-  return new Response(lignes.join("\r\n"), {
+  return lignes.join("\r\n");
+}
+
+function reponseICS(icsTexte) {
+  return new Response(icsTexte, {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": 'attachment; filename="evenement.ics"',
+      "Content-Disposition": 'inline; filename="evenement.ics"',
     },
   });
+}
+
+function construireLienGoogle(p) {
+  const params = { action: "TEMPLATE", text: p.titre, details: p.description, location: p.lieu };
+  if (p.jour) {
+    params.dates = `${p.jour.replace(/-/g, "")}/${jourSuivant(p.jour, false)}`;
+  } else {
+    params.dates = `${p.debut.replace(/[-:]/g, "")}/${p.fin.replace(/[-:]/g, "")}`;
+    params.ctz = "Europe/Paris";
+  }
+  return "https://calendar.google.com/calendar/render?" + new URLSearchParams(params).toString();
+}
+
+function construireLienOutlook(p) {
+  const params = {
+    path: "/calendar/action/compose",
+    rru: "addevent",
+    subject: p.titre,
+    body: p.description,
+    location: p.lieu,
+  };
+  if (p.jour) {
+    params.startdt = p.jour;
+    params.enddt = jourSuivant(p.jour, true);
+    params.allday = "true";
+  } else {
+    params.startdt = p.debut;
+    params.enddt = p.fin;
+    params.allday = "false";
+  }
+  return "https://outlook.live.com/calendar/0/deeplink/compose?" + new URLSearchParams(params).toString();
+}
+
+function lienIcsDirect(p) {
+  const params = { id: p.id, titre: p.titre, description: p.description, lieu: p.lieu };
+  if (p.jour) params.jour = p.jour;
+  else {
+    params.debut = p.debut;
+    params.fin = p.fin;
+  }
+  return "/api/calendrier.ics?" + new URLSearchParams(params).toString();
+}
+
+function estMobile(request) {
+  const ua = request.headers.get("User-Agent") || "";
+  return /Android|iPhone|iPad|iPod/i.test(ua);
+}
+
+function pageChoixAgenda(p) {
+  const corps = `<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Ajouter à mon agenda</title>
+<style>
+  body { background:#0f1620; color:#e8edf4; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; padding:32px 16px; }
+  .wrap { max-width:420px; margin:0 auto; }
+  h1 { font-size:1.4rem; margin-bottom:4px; }
+  p { color:#93a2b8; }
+  a.btn { display:block; text-align:center; text-decoration:none; background:#17212e; border:1px solid #2a3648;
+          color:#e8edf4; border-radius:8px; padding:14px; margin-top:12px; font-weight:600; }
+  a.btn:hover { border-color:#3ba9a0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Ajouter à mon agenda</h1>
+  <p>${echapperHtml(p.titre)}</p>
+  <a class="btn" href="${echapperHtml(construireLienGoogle(p))}">Google Agenda</a>
+  <a class="btn" href="${echapperHtml(construireLienOutlook(p))}">Outlook</a>
+  <a class="btn" href="${echapperHtml(lienIcsDirect(p))}">Apple Calendar / autre (.ics)</a>
+</div>
+</body>
+</html>`;
+
+  return new Response(corps, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+}
+
+// GET /agenda — point d'entrée unique du lien "Ajouter à mon agenda" dans
+// l'email : sur mobile, sert directement le .ics (le système propose le
+// choix d'appli) ; sur desktop, affiche une petite page avec un bouton par
+// fournisseur (pas de fichier à télécharger, donc pas de souci d'association
+// de fichier).
+function gererDemandeAgenda(request) {
+  const p = extraireParamsAgenda(request);
+  if (p.erreur) return errorResponse(p.erreur);
+  return estMobile(request) ? reponseICS(construireICS(p)) : pageChoixAgenda(p);
+}
+
+// GET /api/calendrier.ics — le fichier .ics brut (utilisé directement par
+// la page de choix desktop, et comme lien de secours).
+function genererCalendrierIcs(request) {
+  const p = extraireParamsAgenda(request);
+  if (p.erreur) return errorResponse(p.erreur);
+  return reponseICS(construireICS(p));
 }
 
 function validerEntree(body) {
@@ -208,6 +328,10 @@ export default {
     const url = new URL(request.url);
     const { pathname } = url;
     const { method } = request;
+
+    if (pathname === "/agenda" && method === "GET") {
+      return gererDemandeAgenda(request);
+    }
 
     if (pathname === "/api/calendrier.ics" && method === "GET") {
       return genererCalendrierIcs(request);
