@@ -9,6 +9,7 @@ window.LANGUES = [
 
 window.TEXTES = {
   fr: {
+    titre_principal: "Galv an dañs — l'appel à la danse",
     soustitre_accueil:
       "Reçois une alerte par email quand tes groupes favoris (suivis sur Tamm-Kreiz) jouent un fest-noz, fest-deiz ou concert près de chez toi.",
     label_prenom: "Ton prénom",
@@ -33,6 +34,7 @@ window.TEXTES = {
     prefs_enregistrees: "Préférences enregistrées.",
   },
   en: {
+    titre_principal: "Galv an dañs — the call to the dance",
     soustitre_accueil:
       "Get an email alert when your favourite bands (followed on Tamm-Kreiz) play a fest-noz, fest-deiz or concert near you.",
     label_prenom: "Your first name",
@@ -57,6 +59,7 @@ window.TEXTES = {
     prefs_enregistrees: "Preferences saved.",
   },
   br: {
+    titre_principal: "Galv an dañs",
     soustitre_accueil:
       "Resev ur c'hemennadenn dre bostel pa vez ur fest-noz, fest-deiz pe ur c'hoñsert tost dit gant da strolladoù karetañ (heuliet war Tamm-Kreiz).",
     label_prenom: "Da anv-bihan",
@@ -91,7 +94,15 @@ window.appliquerLangue = function appliquerLangue(langue) {
 
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     const cle = el.getAttribute("data-i18n");
-    if (dict[cle]) el.textContent = dict[cle];
+    const valeur = dict[cle];
+    if (valeur) {
+      el.textContent = valeur;
+      el.hidden = false;
+    } else if (valeur === "") {
+      // Clé volontairement vide pour cette langue (ex : explication du nom
+      // de l'appli, inutile en breton) : on masque l'élément.
+      el.hidden = true;
+    }
   });
   document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
     const cle = el.getAttribute("data-i18n-placeholder");

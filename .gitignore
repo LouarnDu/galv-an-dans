@@ -7,3 +7,7 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# Fichiers de travail (relecture de traductions, etc.) — pas du code
+*.xlsx
+~$*
