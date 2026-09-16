@@ -117,14 +117,32 @@ window.initSelecteurLangue = function initSelecteurLangue(conteneur) {
   barre.setAttribute("role", "group");
   barre.setAttribute("aria-label", "Langue / Language / Yezh");
 
+  // SVG dessinés à la main plutôt que des emoji drapeau : sur Windows,
+  // beaucoup de polices affichent 🇫🇷/🇬🇧 comme du texte "FR"/"GB" au lieu
+  // d'une vraie image — pas de souci de rendu avec du SVG.
+  const drapeauFrance = `<svg viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg">
+    <rect width="10" height="20" fill="#0055A4"/>
+    <rect x="10" width="10" height="20" fill="#fff"/>
+    <rect x="20" width="10" height="20" fill="#EF4135"/>
+  </svg>`;
+
+  const drapeauRoyaumeUni = `<svg viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg">
+    <rect width="30" height="20" fill="#00247d"/>
+    <path d="M0,0 L30,20 M30,0 L0,20" stroke="#fff" stroke-width="4"/>
+    <path d="M0,0 L30,20 M30,0 L0,20" stroke="#cf142b" stroke-width="1.5"/>
+    <path d="M15,0 V20 M0,10 H30" stroke="#fff" stroke-width="6"/>
+    <path d="M15,0 V20 M0,10 H30" stroke="#cf142b" stroke-width="3.5"/>
+  </svg>`;
+
+  // Gwenn ha du : 9 bandes (5 noires, 4 blanches, en commençant et finissant
+  // par du noir), canton blanc en haut à gauche avec des mouchetures d'hermine.
   const drapeauBreton = `<svg viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg">
     <rect width="30" height="20" fill="#000"/>
     <g fill="#fff">
-      <rect y="0" width="30" height="2.22"/>
-      <rect y="4.44" width="30" height="2.22"/>
-      <rect y="8.88" width="30" height="2.22"/>
-      <rect y="13.33" width="30" height="2.22"/>
-      <rect y="17.77" width="30" height="2.23"/>
+      <rect y="2.22" width="30" height="2.23"/>
+      <rect y="6.67" width="30" height="2.23"/>
+      <rect y="11.11" width="30" height="2.23"/>
+      <rect y="15.56" width="30" height="2.22"/>
     </g>
     <rect width="13" height="11.11" fill="#fff"/>
     <g fill="#000">
@@ -136,9 +154,9 @@ window.initSelecteurLangue = function initSelecteurLangue(conteneur) {
   </svg>`;
 
   const drapeaux = [
-    { code: "fr", contenu: "🇫🇷", titre: "Français" },
-    { code: "en", contenu: "🇬🇧", titre: "English" },
+    { code: "fr", contenu: drapeauFrance, titre: "Français" },
     { code: "br", contenu: drapeauBreton, titre: "Brezhoneg" },
+    { code: "en", contenu: drapeauRoyaumeUni, titre: "English" },
   ];
 
   for (const d of drapeaux) {
