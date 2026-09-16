@@ -40,10 +40,15 @@ function extraireParamsAgenda(request) {
     return { erreur: "Paramètres 'debut'/'fin' (événement avec horaire) ou 'jour' (journée complète) manquants." };
   }
 
+  const description = sp.get("description") || "";
   return {
     id: sp.get("id") || "evt",
     titre,
-    description: sp.get("description") || "",
+    description,
+    // Version HTML (liens cliquables) utilisée par Google Agenda/Outlook ;
+    // le .ics garde toujours la version texte brut (le format iCalendar
+    // n'affiche pas le HTML).
+    descriptionHtml: sp.get("description_html") || description,
     lieu: sp.get("lieu") || "",
     debut,
     fin,
@@ -92,7 +97,7 @@ function reponseICS(icsTexte) {
 }
 
 function construireLienGoogle(p) {
-  const params = { action: "TEMPLATE", text: p.titre, details: p.description, location: p.lieu };
+  const params = { action: "TEMPLATE", text: p.titre, details: p.descriptionHtml, location: p.lieu };
   if (p.jour) {
     params.dates = `${p.jour.replace(/-/g, "")}/${jourSuivant(p.jour, false)}`;
   } else {
@@ -107,7 +112,7 @@ function construireLienOutlook(p) {
     path: "/calendar/action/compose",
     rru: "addevent",
     subject: p.titre,
-    body: p.description,
+    body: p.descriptionHtml,
     location: p.lieu,
   };
   if (p.jour) {

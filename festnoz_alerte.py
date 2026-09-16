@@ -175,11 +175,24 @@ def lien_calendrier(evt: dict) -> str:
     """Lien vers /agenda sur le site web : sert directement le .ics sur
     mobile (le système propose le choix d'appli), ou une page de choix
     Google/Outlook/Apple sur desktop — adapté à l'appareil qui clique."""
-    titre = f"{evt['type']} à {evt['duree']}min - " + " - ".join(evt["favoris_presents"])
+    titre = f"{evt['type']} à {evt['ville']} avec " + " - ".join(evt["favoris_presents"])
     lieu = evt.get("adresse") or evt["ville"]
     description = f"{evt['plateau']}\n\nVoir l'événement sur Tamm Kreiz : {evt['url']}"
+    # Version HTML utilisée par Google Agenda/Outlook (qui rendent les liens
+    # dans la description) — le .ics garde la version texte brut ci-dessus,
+    # car le format iCalendar n'affiche pas le HTML.
+    description_html = (
+        f"{html.escape(evt['plateau'])}<br><br>"
+        f'<a href="{html.escape(evt["url"])}">Voir sur Tamm Kreiz</a>'
+    )
 
-    params = {"id": str(evt["id"]), "titre": titre, "description": description, "lieu": lieu}
+    params = {
+        "id": str(evt["id"]),
+        "titre": titre,
+        "description": description,
+        "description_html": description_html,
+        "lieu": lieu,
+    }
 
     heure = parser_heure(evt["heure"]) if evt.get("heure") else None
     if heure:
@@ -268,7 +281,12 @@ def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, st
     groupé par date. La version HTML porte les liens cliquables ("voir sur
     Tamm Kreiz", "ajouter à mon calendrier") ; la version texte sert de
     secours pour les clients mail qui n'affichent pas le HTML."""
-    sujet = f"🎶 {len(alertes)} nouvelle(s) date(s) de tes groupes favoris"
+    n = len(alertes)
+    sujet = (
+        f"📣 {n} nouvelle date de tes groupes favoris"
+        if n == 1
+        else f"📣 {n} nouvelles dates de tes groupes favoris"
+    )
 
     blocs_html = []
     blocs_texte = []
