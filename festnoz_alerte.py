@@ -288,7 +288,13 @@ def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, st
         else f"📣 {n} nouvelles dates de tes groupes favoris"
     )
 
-    note = "Pense à noter les dates qui t'intéressent : chaque événement ne t'est envoyé qu'une seule fois."
+    if utilisateur.get("repeter_evenements"):
+        note = (
+            "Tu as choisi d'être re-notifié.e chaque semaine des événements, "
+            "tu peux changer cela dans ton profil (en bas de cet e-mail)."
+        )
+    else:
+        note = "Pense à noter les dates qui t'intéressent : chaque événement ne t'est envoyé qu'une seule fois."
     blocs_html = [f"<p>📌 {html.escape(note)}</p>"]
     blocs_texte = [f"📌 {note}\n"]
     date_courante = None
@@ -496,7 +502,8 @@ def main():
             cache_evenements[nom] = {"alertes": alertes, "ids_futurs": ids_evenements_futurs}
         afficher_alertes(utilisateur, alertes)
 
-        deja_notifies = set() if forcer_envoi else set(notifies.get(nom, []))
+        repeter = utilisateur.get("repeter_evenements")
+        deja_notifies = set() if (forcer_envoi or repeter) else set(notifies.get(nom, []))
         nouvelles_alertes = [evt for evt in alertes if evt["id"] not in deja_notifies]
 
         if nouvelles_alertes:

@@ -9,26 +9,28 @@
 </head>
 <body>
   <div class="wrap">
+    <div id="selecteur-langue"></div>
+
     <h1>Galv an dañs</h1>
-    <p class="subtitle">
+    <p class="subtitle" data-i18n="soustitre_accueil">
       Reçois une alerte par email quand tes groupes favoris (suivis sur
       Tamm-Kreiz) jouent un fest-noz, fest-deiz ou concert près de chez toi.
     </p>
 
     <form id="form-inscription">
       <label>
-        Ton prénom
+        <span data-i18n="label_prenom">Ton prénom</span>
         <input type="text" name="nom" required maxlength="80" />
       </label>
 
       <label>
-        Ton email
-        <span class="hint">Pour recevoir les alertes et ton lien de gestion.</span>
+        <span data-i18n="label_email">Ton email</span>
+        <span class="hint" data-i18n="hint_email">Pour recevoir les alertes et ton lien de gestion.</span>
         <input type="email" name="email" required maxlength="200" />
       </label>
 
       <label>
-        URL de ton profil Tamm-Kreiz
+        <span data-i18n="label_profil">URL de ton profil Tamm-Kreiz</span>
         <span class="hint">https://tamm-kreiz.bzh/profil/...</span>
         <input
           type="url"
@@ -40,27 +42,35 @@
       </label>
 
       <label>
-        Ton adresse
-        <span class="hint">Sert uniquement à calculer le temps de trajet.</span>
+        <span data-i18n="label_adresse">Ton adresse</span>
+        <span class="hint" data-i18n="hint_adresse">Sert uniquement à calculer le temps de trajet.</span>
         <input type="text" name="adresse" required maxlength="200" />
       </label>
 
       <label>
-        Rayon (minutes de route)
+        <span data-i18n="label_rayon">Rayon (minutes de route)</span>
         <input type="number" name="rayon_minutes" required min="1" max="300" value="40" />
       </label>
 
-      <button type="submit" class="primary">Créer mon alerte</button>
+      <label style="flex-direction: row; align-items: center; gap: 8px;">
+        <input type="checkbox" name="repeter_evenements" style="width: auto;" />
+        <span data-i18n="label_repeter">Me renvoyer les mêmes événements à chaque email (plutôt qu'une seule fois)</span>
+      </label>
+
+      <button type="submit" class="primary" data-i18n="bouton_creer">Créer mon alerte</button>
     </form>
 
     <div id="message" class="message" hidden></div>
 
-    <p class="subtitle" style="margin-top: 24px;">
+    <p class="subtitle" style="margin-top: 24px;" data-i18n="footer_deja_inscrit">
       Déjà inscrit(e) ? Utilise le lien reçu par email pour modifier tes préférences.
     </p>
   </div>
 
+  <script src="i18n.js"></script>
   <script>
+    initSelecteurLangue(document.getElementById("selecteur-langue"));
+
     const form = document.getElementById("form-inscription");
     const message = document.getElementById("message");
 
@@ -78,23 +88,24 @@
 
       const donnees = Object.fromEntries(new FormData(form).entries());
       donnees.rayon_minutes = Number(donnees.rayon_minutes);
+      donnees.repeter_evenements = form.repeter_evenements.checked;
 
       try {
         const resp = await fetch("/api/users", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Lang": window.langueActuelle },
           body: JSON.stringify(donnees),
         });
         const data = await resp.json();
         if (!resp.ok) {
-          afficherMessage(data.error || "Une erreur est survenue.", "error");
+          afficherMessage(data.error, "error");
         } else {
           afficherMessage(data.message, "ok");
           form.reset();
           form.rayon_minutes.value = 40;
         }
       } catch {
-        afficherMessage("Erreur réseau, réessaie dans un instant.", "error");
+        afficherMessage(window.TEXTES[window.langueActuelle].erreur_reseau, "error");
       } finally {
         bouton.disabled = false;
       }

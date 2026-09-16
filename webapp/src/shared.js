@@ -32,9 +32,10 @@ export async function envoyerEmailBienvenue(env, destinataire, nom, lienEdition)
   const sujet = "Bienvenue sur Galv an dañs — ton lien de gestion";
   const corps =
     `Salut ${nom},\n\n` +
-    `Ton alerte fest-noz est bien créée. Garde ce lien précieusement : il te ` +
-    `permet de modifier tes préférences (profil Tamm-Kreiz, adresse, rayon) ` +
-    `ou de supprimer ton compte à tout moment.\n\n` +
+    `Ton alerte fest-noz est bien créée. Tu recevras le premier email d'ici ` +
+    `quelques minutes puis un email d'alerte par semaine.\n\n` +
+    `Via le lien ci-dessous, tu pourras modifier tes préférences ou supprimer ` +
+    `ton compte à tout moment. Il sera présent en bas de chaque email d'alerte.\n\n` +
     `${lienEdition}\n\n` +
     `Ne le partage avec personne : quiconque possède ce lien peut modifier ` +
     `tes préférences.\n`;

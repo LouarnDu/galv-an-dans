@@ -9,22 +9,24 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Mes préférences</h1>
-    <p class="subtitle" id="subtitle">Chargement...</p>
+    <div id="selecteur-langue"></div>
+
+    <h1 data-i18n="titre_edit">Mes préférences</h1>
+    <p class="subtitle" id="subtitle" data-i18n="chargement">Chargement...</p>
 
     <form id="form-edition" hidden>
       <label>
-        Ton prénom
+        <span data-i18n="label_prenom">Ton prénom</span>
         <input type="text" name="nom" required maxlength="80" />
       </label>
 
       <label>
-        Ton email
+        <span data-i18n="label_email">Ton email</span>
         <input type="email" name="email" required maxlength="200" />
       </label>
 
       <label>
-        URL de ton profil Tamm-Kreiz
+        <span data-i18n="label_profil">URL de ton profil Tamm-Kreiz</span>
         <input
           type="url"
           name="profil_url"
@@ -34,23 +36,31 @@
       </label>
 
       <label>
-        Ton adresse
+        <span data-i18n="label_adresse">Ton adresse</span>
         <input type="text" name="adresse" required maxlength="200" />
       </label>
 
       <label>
-        Rayon (minutes de route)
+        <span data-i18n="label_rayon">Rayon (minutes de route)</span>
         <input type="number" name="rayon_minutes" required min="1" max="300" />
       </label>
 
-      <button type="submit" class="primary">Enregistrer</button>
-      <button type="button" class="danger" id="btn-supprimer">Supprimer mon compte</button>
+      <label style="flex-direction: row; align-items: center; gap: 8px;">
+        <input type="checkbox" name="repeter_evenements" style="width: auto;" />
+        <span data-i18n="label_repeter">Me renvoyer les mêmes événements à chaque email (plutôt qu'une seule fois)</span>
+      </label>
+
+      <button type="submit" class="primary" data-i18n="bouton_enregistrer">Enregistrer</button>
+      <button type="button" class="danger" id="btn-supprimer" data-i18n="bouton_supprimer">Supprimer mon compte</button>
     </form>
 
     <div id="message" class="message" hidden></div>
   </div>
 
+  <script src="i18n.js"></script>
   <script>
+    initSelecteurLangue(document.getElementById("selecteur-langue"));
+
     const params = new URLSearchParams(location.search);
     const id = params.get("id");
     const form = document.getElementById("form-edition");
@@ -64,26 +74,31 @@
     }
 
     if (!id) {
-      subtitle.textContent = "Lien invalide : identifiant manquant dans l'URL.";
+      subtitle.removeAttribute("data-i18n");
+      subtitle.textContent = window.TEXTES[window.langueActuelle].lien_invalide_id;
     } else {
       chargerPreferences();
     }
 
     async function chargerPreferences() {
       try {
-        const resp = await fetch(`/api/u/${id}`);
+        const resp = await fetch(`/api/u/${id}`, { headers: { "X-Lang": window.langueActuelle } });
         const data = await resp.json();
         if (!resp.ok) {
-          subtitle.textContent = data.error || "Impossible de charger tes préférences.";
+          subtitle.removeAttribute("data-i18n");
+          subtitle.textContent = data.error;
           return;
         }
         for (const champ of ["nom", "email", "profil_url", "adresse", "rayon_minutes"]) {
           form.elements[champ].value = data[champ];
         }
-        subtitle.textContent = "Modifie ce que tu veux, puis enregistre.";
+        form.elements.repeter_evenements.checked = Boolean(data.repeter_evenements);
+        subtitle.removeAttribute("data-i18n");
+        subtitle.textContent = window.TEXTES[window.langueActuelle].pret_a_modifier;
         form.hidden = false;
       } catch {
-        subtitle.textContent = "Erreur réseau, réessaie dans un instant.";
+        subtitle.removeAttribute("data-i18n");
+        subtitle.textContent = window.TEXTES[window.langueActuelle].erreur_reseau;
       }
     }
 
@@ -95,39 +110,44 @@
 
       const donnees = Object.fromEntries(new FormData(form).entries());
       donnees.rayon_minutes = Number(donnees.rayon_minutes);
+      donnees.repeter_evenements = form.repeter_evenements.checked;
 
       try {
         const resp = await fetch(`/api/u/${id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Lang": window.langueActuelle },
           body: JSON.stringify(donnees),
         });
         const data = await resp.json();
         if (!resp.ok) {
-          afficherMessage(data.error || "Une erreur est survenue.", "error");
+          afficherMessage(data.error, "error");
         } else {
-          afficherMessage("Préférences enregistrées.", "ok");
+          afficherMessage(window.TEXTES[window.langueActuelle].prefs_enregistrees, "ok");
         }
       } catch {
-        afficherMessage("Erreur réseau, réessaie dans un instant.", "error");
+        afficherMessage(window.TEXTES[window.langueActuelle].erreur_reseau, "error");
       } finally {
         bouton.disabled = false;
       }
     });
 
     document.getElementById("btn-supprimer").addEventListener("click", async () => {
-      if (!confirm("Supprimer définitivement ton compte et tes alertes ?")) return;
+      if (!confirm(window.TEXTES[window.langueActuelle].confirm_suppression)) return;
       try {
-        const resp = await fetch(`/api/u/${id}`, { method: "DELETE" });
+        const resp = await fetch(`/api/u/${id}`, {
+          method: "DELETE",
+          headers: { "X-Lang": window.langueActuelle },
+        });
         const data = await resp.json();
         if (!resp.ok) {
-          afficherMessage(data.error || "Une erreur est survenue.", "error");
+          afficherMessage(data.error, "error");
         } else {
           form.hidden = true;
-          subtitle.textContent = "Ton compte a été supprimé.";
+          subtitle.removeAttribute("data-i18n");
+          subtitle.textContent = window.TEXTES[window.langueActuelle].compte_supprime;
         }
       } catch {
-        afficherMessage("Erreur réseau, réessaie dans un instant.", "error");
+        afficherMessage(window.TEXTES[window.langueActuelle].erreur_reseau, "error");
       }
     });
   </script>

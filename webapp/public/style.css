@@ -27,6 +27,35 @@ body {
   margin: 0 auto;
 }
 
+.langues {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.drapeau {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+  font-size: 1.3rem;
+  line-height: 1;
+  opacity: 0.45;
+}
+
+.drapeau.actif {
+  opacity: 1;
+  border-color: var(--accent);
+}
+
+.drapeau svg {
+  display: block;
+  width: 26px;
+  height: 17px;
+  border-radius: 2px;
+}
+
 h1 {
   font-size: 1.5rem;
   margin-bottom: 4px;
