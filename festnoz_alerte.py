@@ -425,8 +425,8 @@ def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, st
         blocs_html.append(
             "<p>"
             f"<strong>{html.escape(titre_evt)}</strong><br>"
-            f"{html.escape(t['label_favoris'])}{html.escape(favoris_txt)}<br>"
-            f"{html.escape(t['label_plateau'])}{html.escape(evt['plateau'])}<br>"
+            f"<strong>{html.escape(t['label_favoris'])}</strong>{html.escape(favoris_txt)}<br>"
+            f"<strong>{html.escape(t['label_plateau'])}</strong>{html.escape(evt['plateau'])}<br>"
             f"🚗 {evt['duree']}{html.escape(t['label_distance'])}<br>"
             f'<a href="{html.escape(evt["url"])}" style="{style_bouton}">{html.escape(t["lien_tammkreiz"])}</a>'
             f'<a href="{html.escape(lien_ics)}" style="{style_bouton}">{html.escape(t["lien_agenda"])}</a>'
