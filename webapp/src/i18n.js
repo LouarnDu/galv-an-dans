@@ -66,11 +66,11 @@ export const EMAIL_BIENVENUE = {
     corps: (nom, lien) =>
       `Hi ${nom},\n\n` +
       `Your fest-noz alert is all set up. You'll get your first email within a few ` +
-      `minutes, then one alert email a week.\n\n` +
-      `Using the link below, you can change your preferences or delete your account ` +
+      `minutes, then one alert a week.\n\n` +
+      `Using the link below, you can change your settings or delete your account ` +
       `at any time. It will also be included at the bottom of every alert email.\n\n` +
       `${lien}\n\n` +
-      `Don't share it with anyone: whoever has this link can change your preferences ` +
+      `Don't share it with anyone: whoever has this link can change your settings ` +
       `or delete your account.`,
   },
   br: {

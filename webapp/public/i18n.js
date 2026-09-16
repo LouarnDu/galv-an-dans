@@ -48,7 +48,7 @@ window.TEXTES = {
     bouton_creer: "Create my alert",
     footer_deja_inscrit: "Already signed up? Use the link you received by email to view and change your settings.",
     erreur_reseau: "Network error, please try again in a moment.",
-    titre_edit: "My preferences",
+    titre_edit: "My settings",
     chargement: "Loading...",
     lien_invalide_id: "Invalid link: missing identifier in the URL.",
     pret_a_modifier: "Change what you like, then save.",
@@ -56,7 +56,7 @@ window.TEXTES = {
     bouton_enregistrer: "Save",
     bouton_supprimer: "Delete my account",
     confirm_suppression: "Permanently delete your account and alerts?",
-    prefs_enregistrees: "Preferences saved.",
+    prefs_enregistrees: "Settings saved.",
   },
   br: {
     titre_principal: "Galv an dañs",

@@ -338,7 +338,7 @@ TRAD_EMAIL = {
         "label_distance": " min from your place",
         "lien_tammkreiz": "View on Tamm Kreiz",
         "lien_agenda": "Add to my calendar",
-        "footer_gerer": "Manage your preferences (address, radius, profile)",
+        "footer_gerer": "Manage your settings (address, radius, profile)",
         "connecteur_a": "at",
         "connecteur_heure": "at",
         "connecteur_avec": "with",
