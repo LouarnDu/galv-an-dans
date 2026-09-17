@@ -161,8 +161,13 @@ function boutonsAgenda(p, request) {
   const outlook = { label: "Outlook", href: construireLienOutlook(p) };
   const ics = { label: "Autre (.ics)", href: lienIcsDirect(p) };
   const apple = { label: "Apple Calendar / autre (.ics)", href: lienIcsDirect(p) };
+  // Samsung ne propose pas d'URL web dédiée (pas de service calendrier en
+  // ligne comme Google/Microsoft) : ce bouton pointe vers le même .ics que
+  // "Autre", mais porte son propre libellé pour que les utilisateurs
+  // Samsung sachent où cliquer.
+  const samsung = { label: "Samsung Agenda", href: lienIcsDirect(p) };
 
-  if (estAndroid(request)) return [google, outlook, ics];
+  if (estAndroid(request)) return [google, outlook, samsung, ics];
   if (estIOS(request)) return [apple, google, outlook];
   return [google, outlook, apple];
 }
