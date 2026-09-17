@@ -153,7 +153,25 @@ function estIOS(request) {
   return /iPhone|iPad|iPod/i.test(request.headers.get("User-Agent") || "");
 }
 
-function pageChoixAgenda(p) {
+// Boutons proposés sur la page de choix, dans l'ordre, selon l'appareil :
+// l'option la plus probable en premier, mais on laisse toujours le choix
+// plutôt que de décider à la place de l'utilisateur.
+function boutonsAgenda(p, request) {
+  const google = { label: "Google Agenda", href: construireLienGoogle(p) };
+  const outlook = { label: "Outlook", href: construireLienOutlook(p) };
+  const ics = { label: "Autre (.ics)", href: lienIcsDirect(p) };
+  const apple = { label: "Apple Calendar / autre (.ics)", href: lienIcsDirect(p) };
+
+  if (estAndroid(request)) return [google, outlook, ics];
+  if (estIOS(request)) return [apple, google, outlook];
+  return [google, outlook, apple];
+}
+
+function pageChoixAgenda(p, request) {
+  const boutons = boutonsAgenda(p, request)
+    .map((b) => `  <a class="btn" href="${echapperHtml(b.href)}">${echapperHtml(b.label)}</a>`)
+    .join("\n");
+
   const corps = `<!doctype html>
 <html lang="fr">
 <head>
@@ -175,9 +193,7 @@ function pageChoixAgenda(p) {
 <div class="wrap">
   <h1>Ajouter à mon agenda</h1>
   <p>${echapperHtml(p.titre)}</p>
-  <a class="btn" href="${echapperHtml(construireLienGoogle(p))}">Google Agenda</a>
-  <a class="btn" href="${echapperHtml(construireLienOutlook(p))}">Outlook</a>
-  <a class="btn" href="${echapperHtml(lienIcsDirect(p))}">Apple Calendar / autre (.ics)</a>
+${boutons}
 </div>
 </body>
 </html>`;
@@ -186,19 +202,13 @@ function pageChoixAgenda(p) {
 }
 
 // GET /agenda — point d'entrée unique du lien "Ajouter à mon agenda" dans
-// l'email :
-// - Android : redirige directement vers Google Agenda (aucun fichier
-//   impliqué — les navigateurs intégrés des applis mail comme Gmail
-//   téléchargent systématiquement les .ics au lieu de proposer de les
-//   ouvrir, donc autant s'en passer).
-// - iOS : sert le .ics (Apple Calendar le gère nativement très bien).
-// - Desktop : petite page avec un bouton par fournisseur.
+// l'email. Toujours une page de choix (mobile et desktop) : les options
+// proposées et leur ordre s'adaptent à l'appareil (boutonsAgenda), mais
+// c'est toujours l'utilisateur qui décide où l'événement atterrit.
 function gererDemandeAgenda(request) {
   const p = extraireParamsAgenda(request);
   if (p.erreur) return errorResponse(p.erreur);
-  if (estAndroid(request)) return Response.redirect(construireLienGoogle(p), 302);
-  if (estIOS(request)) return reponseICS(construireICS(p));
-  return pageChoixAgenda(p);
+  return pageChoixAgenda(p, request);
 }
 
 // GET /api/calendrier.ics — le fichier .ics brut (utilisé directement par
