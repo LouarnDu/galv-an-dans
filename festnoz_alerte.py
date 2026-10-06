@@ -312,6 +312,12 @@ TRAD_EMAIL = {
         "sujet_pluriel": "📣 {n} nouvelles dates de tes groupes favoris",
         "note_unique": "Pense à noter les dates qui t'intéressent : chaque événement ne t'est envoyé qu'une seule fois.",
         "note_repete": "Tu as choisi d'être re-notifié.e chaque semaine des événements, tu peux changer cela dans ton profil (en bas de cet e-mail).",
+        "note_badge": "Les événements marqués « Nouveau » n'étaient pas dans ton dernier e-mail.",
+        "badge_nouveau": "Nouveau",
+        "sujet_deja_singulier": " (+{n} déjà annoncée)",
+        "sujet_deja_pluriel": " (+{n} déjà annoncées)",
+        "sujet_rappel_singulier": "📣 Rien de nouveau : 1 date à venir de tes groupes favoris",
+        "sujet_rappel_pluriel": "📣 Rien de nouveau : {n} dates à venir de tes groupes favoris",
         "label_favoris": "Groupe(s) favori(s) : ",
         "label_plateau": "Plateau complet : ",
         "label_distance": " min de chez toi",
@@ -333,6 +339,12 @@ TRAD_EMAIL = {
         "sujet_pluriel": "📣 {n} new dates for your favourite bands",
         "note_unique": "Make a note of the dates you're interested in: each event is only ever sent to you once.",
         "note_repete": "You've chosen to be reminded of events every week — you can change that in your profile (at the bottom of this email).",
+        "note_badge": "Events marked “New” weren't in your last email.",
+        "badge_nouveau": "New",
+        "sujet_deja_singulier": " (+{n} already announced)",
+        "sujet_deja_pluriel": " (+{n} already announced)",
+        "sujet_rappel_singulier": "📣 Nothing new: 1 upcoming date for your favourite bands",
+        "sujet_rappel_pluriel": "📣 Nothing new: {n} upcoming dates for your favourite bands",
         "label_favoris": "Favourite band(s): ",
         "label_plateau": "Full line-up: ",
         "label_distance": " min from your place",
@@ -354,6 +366,12 @@ TRAD_EMAIL = {
         "sujet_pluriel": "📣 {n} abadenn nevez gant da strolladoù muiañ-karet",
         "note_unique": "Notenn ar deiziadoù a blij dit : ne vez kaset dit an abadennoù nemet ur wech.",
         "note_repete": "Dibabet 'peus bezañ adkemennet bep sizhun eus an abadennoù, gallout a rez cheñch an dra-se en da brofil (traoñ ar postel-mañ).",
+        "note_badge": "An abadennoù merket « Nevez » ne oant ket er postel diwezhañ.",
+        "badge_nouveau": "Nevez",
+        "sujet_deja_singulier": " (+{n} kemennet dija)",
+        "sujet_deja_pluriel": " (+{n} kemennet dija)",
+        "sujet_rappel_singulier": "📣 Netra nevez : un abadenn da zont gant da strolladoù muiañ-karet",
+        "sujet_rappel_pluriel": "📣 Netra nevez : {n} abadenn da zont gant da strolladoù muiañ-karet",
         "label_favoris": "Strolladoù muiañ-karet : ",
         "label_plateau": "Ar roll a-bezh : ",
         "label_distance": " munutenn diouzh da di",
@@ -384,21 +402,41 @@ def formater_date(d: date, langue: str) -> str:
     return f"{jour} {d.day} {mois}"
 
 
-def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, str]:
+def formater_email(
+    utilisateur: dict, alertes: list[dict], ids_nouveaux: set[str] | None = None
+) -> tuple[str, str, str]:
     """Construit (sujet, corps_html, corps_texte) du mail récapitulatif,
     groupé par date, dans la langue de l'utilisateur. La version HTML porte
     les liens cliquables ("voir sur Tamm Kreiz", "ajouter à mon agenda") ;
     la version texte sert de secours pour les clients mail qui n'affichent
-    pas le HTML."""
+    pas le HTML.
+
+    ids_nouveaux : ids des événements absents du dernier email, pour les
+    utilisateurs qui reçoivent tout à chaque fois (badge "Nouveau" + sujet
+    adapté). None = pas de distinction à faire."""
     langue = utilisateur.get("langue") or "fr"
     t = trad(langue)
 
     n = len(alertes)
-    sujet = t["sujet_singulier"] if n == 1 else t["sujet_pluriel"].format(n=n)
+    if ids_nouveaux is None:
+        sujet = t["sujet_singulier"] if n == 1 else t["sujet_pluriel"].format(n=n)
+    else:
+        n_nouveaux = sum(1 for evt in alertes if evt["id"] in ids_nouveaux)
+        n_deja = n - n_nouveaux
+        if n_nouveaux == 0:
+            sujet = t["sujet_rappel_singulier"] if n == 1 else t["sujet_rappel_pluriel"].format(n=n)
+        else:
+            sujet = t["sujet_singulier"] if n_nouveaux == 1 else t["sujet_pluriel"].format(n=n_nouveaux)
+            if n_deja:
+                cle = "sujet_deja_singulier" if n_deja == 1 else "sujet_deja_pluriel"
+                sujet += t[cle].format(n=n_deja)
 
     note = t["note_repete"] if utilisateur.get("repeter_evenements") else t["note_unique"]
     blocs_html = [f"<p>📌 {html.escape(note)}</p>"]
     blocs_texte = [f"📌 {note}\n"]
+    if ids_nouveaux:
+        blocs_html.append(f"<p>{html.escape(t['note_badge'])}</p>")
+        blocs_texte.append(f"{t['note_badge']}\n")
     date_courante = None
     for evt in sorted(alertes, key=lambda e: e["date"]):
         if evt["date"] != date_courante:
@@ -414,6 +452,15 @@ def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, st
         )
         titre_evt = f"{evt['type']} {t['connecteur_a']} {evt['ville']}{heure_txt}"
         favoris_txt = ", ".join(evt["favoris_presents"])
+        est_nouveau = bool(ids_nouveaux) and evt["id"] in ids_nouveaux
+        badge_html = (
+            '<span style="display:inline-block;background:#EAF3DE;color:#27500A;font-size:12px;'
+            'font-weight:bold;padding:1px 8px;border-radius:10px;margin-left:6px;">'
+            f"{html.escape(t['badge_nouveau'])}</span>"
+            if est_nouveau
+            else ""
+        )
+        badge_texte = f" [{t['badge_nouveau']}]" if est_nouveau else ""
 
         lien_ics = lien_calendrier(evt, langue)
         style_bouton = (
@@ -424,7 +471,7 @@ def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, st
 
         blocs_html.append(
             "<p>"
-            f"<strong>{html.escape(titre_evt)}</strong><br>"
+            f"<strong>{html.escape(titre_evt)}</strong>{badge_html}<br>"
             f"<strong>{html.escape(t['label_favoris'])}</strong>{html.escape(favoris_txt)}<br>"
             f"<strong>{html.escape(t['label_plateau'])}</strong>{html.escape(evt['plateau'])}<br>"
             f"🚗 {evt['duree']}{html.escape(t['label_distance'])}<br>"
@@ -433,7 +480,7 @@ def formater_email(utilisateur: dict, alertes: list[dict]) -> tuple[str, str, st
             "</p>"
         )
         blocs_texte.append(
-            f"{titre_evt}\n"
+            f"{titre_evt}{badge_texte}\n"
             f"  {t['label_favoris']}{favoris_txt}\n"
             f"  {t['label_plateau']}{evt['plateau']}\n"
             f"  🚗 {evt['duree']}{t['label_distance']}\n"
@@ -612,9 +659,17 @@ def main():
         deja_notifies = set() if (forcer_envoi or repeter) else set(notifies.get(nom, []))
         nouvelles_alertes = [evt for evt in alertes if evt["id"] not in deja_notifies]
 
+        # Pour qui reçoit tout à chaque fois : on distingue les événements
+        # absents du dernier envoi. Pas de badge au tout premier email
+        # (aucun historique : tout serait "nouveau", donc aucune info).
+        ids_nouveaux = None
+        if repeter and nom in notifies:
+            deja_envoyes = set(notifies[nom])
+            ids_nouveaux = {evt["id"] for evt in nouvelles_alertes if evt["id"] not in deja_envoyes}
+
         if nouvelles_alertes:
             print(f"\n  → {len(nouvelles_alertes)} nouvelle(s) alerte(s) à notifier.")
-            sujet, corps_html, corps_texte = formater_email(utilisateur, nouvelles_alertes)
+            sujet, corps_html, corps_texte = formater_email(utilisateur, nouvelles_alertes, ids_nouveaux)
             envoyer_email(utilisateur.get("email", ""), sujet, corps_html, corps_texte)
         else:
             print("\n  → Rien de nouveau depuis la dernière exécution, pas d'email envoyé.")
